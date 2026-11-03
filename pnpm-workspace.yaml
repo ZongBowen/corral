@@ -1,0 +1,14 @@
+packages:
+  - '.'
+
+nodeLinker: hoisted
+
+onlyBuiltDependencies:
+  - electron
+  - electron-builder
+  - esbuild
+
+ignoredBuiltDependencies:
+  - cpu-features
+  - electron-winstaller
+  - ssh2

@@ -1,0 +1,36 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+}
+
+.corral-code {
+  font-family: 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.corral-log {
+  font-family: 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.corral-log-wrap {
+  position: relative;
+}
+
+.corral-back-bottom {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+}

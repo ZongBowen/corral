@@ -1,0 +1,47 @@
+{
+  "name": "corral",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Corral - 研发服务器管理工具",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc -p tsconfig.node.json --noEmit",
+    "typecheck:web": "tsc -p tsconfig.web.json --noEmit",
+    "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "pnpm run typecheck && electron-vite build",
+    "dist": "pnpm run build && electron-builder --win --x64",
+    "dist:dir": "pnpm run build && electron-builder --win --x64 --dir"
+  },
+  "dependencies": {
+    "ssh2": "1.17.0",
+    "iconv-lite": "0.7.3"
+  },
+  "devDependencies": {
+    "@ant-design/icons": "6.3.4",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/ssh2": "1.15.6",
+    "@vitejs/plugin-react": "6.1.2",
+    "anser": "2.3.5",
+    "antd": "6.6.8",
+    "dayjs": "1.11.23",
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "nanoid": "6.0.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5",
+    "zod": "4.6.7",
+    "zustand": "5.0.16"
+  },
+  "author": "Corral",
+  "productName": "Corral"
+}

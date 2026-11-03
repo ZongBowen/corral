@@ -1,0 +1,28 @@
+appId: com.corral.desktop
+productName: Corral
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - '!out/**/*.map'
+  - package.json
+asar: true
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Corral
+  deleteAppDataOnUninstall: false
+publish: null
