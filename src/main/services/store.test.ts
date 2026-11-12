@@ -2,6 +2,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { PathCheck } from '@shared/types'
 import { StoreService } from './store'
 
 let dir = ''
@@ -91,6 +92,37 @@ describe('StoreService', () => {
     expect(action.confirm).toBe(true)
     expect(action.uploads).toEqual([])
     expect(store.getState().settings.defaultTimeoutSec).toBe(300)
+    expect(store.getState().pathChecks).toEqual({})
+  })
+
+  it('persists path check snapshots and drops orphaned entries on reload', async () => {
+    const check: PathCheck = {
+      key: 'workDir',
+      label: '工作目录',
+      path: '/opt/app',
+      status: 'ok',
+      checkedAt: '2026-01-01T00:00:00.000Z'
+    }
+    const store = new StoreService(dir)
+    await store.init()
+    await store.mutate((state) => {
+      state.envs.push({
+        id: 'e1',
+        serverId: 's1',
+        name: 'env',
+        paths: [{ key: 'workDir', label: '工作目录', path: '/opt/app', required: true }],
+        actions: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      })
+      state.pathChecks = { e1: [check], missing: [check] }
+    })
+    await store.flush()
+
+    const reloaded = new StoreService(dir)
+    await reloaded.init()
+    expect(reloaded.getState().pathChecks).toEqual({ e1: [check] })
+    expect(reloaded.exportConfig('0.1.0')).not.toHaveProperty('pathChecks')
   })
 
   it('updates settings', async () => {

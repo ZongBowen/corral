@@ -17,6 +17,7 @@ export function registerAppIpc(ctx: AppContext): void {
         }))
       ),
       envs: ctx.store.getState().envs,
+      pathChecks: ctx.store.getState().pathChecks,
       settings: ctx.store.getSettings(),
       activeRunIds: ctx.runner.getActiveRunIds()
     }

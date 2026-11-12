@@ -40,7 +40,7 @@ function AppInner(): React.ReactElement {
         const boot = result.data
         useSettingsStore.setState({ settings: boot.settings, loaded: true })
         useServersStore.setState({ servers: boot.servers, loaded: true })
-        useEnvsStore.setState({ envs: boot.envs, loaded: true })
+        useEnvsStore.setState({ envs: boot.envs, pathChecks: boot.pathChecks, loaded: true })
         for (const runId of boot.activeRunIds) {
           useRunStreamStore.getState().setStatus(runId, 'running')
         }

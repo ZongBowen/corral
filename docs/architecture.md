@@ -155,7 +155,7 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
    - registerIpc()：注册全部 invoke handler。
    - applyRetention()：按保留条数/天数清理历史。
    - 读取 window-state.json，创建主窗口。
-5. 渲染层启动：App.tsx 调用 app:getBootState，一次性拿到 servers/envs/settings/activeRunIds，写入 Zustand；随后渲染 AppLayout 与全局 HostKeyModal。
+5. 渲染层启动：App.tsx 调用 app:getBootState，一次性拿到 servers/envs/pathChecks/settings/activeRunIds，写入 Zustand；随后渲染 AppLayout 与全局 HostKeyModal。
 6. 退出：窗口关闭或 before-quit 时若有活动任务，弹出确认；确认后 cancelAll()、刷新 store、退出。
 
 默认数据目录：%APPDATA%/Corral。
@@ -164,7 +164,8 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
 
 ### 5.1 StoreService（services/store.ts）
 
-- 维护完整 StoreState：servers、envs、runs、settings、schemaVersion。
+- 维护完整 StoreState：servers、envs、pathChecks、runs、settings、schemaVersion。
+- 目录手动校验快照按 envId 保存；目录、SSH 目标或登录账号变化以及环境删除时失效，配置导出不包含快照。
 - 写策略：writeFileAtomic 先写临时文件、fsync，再 rename 覆盖。
 - 写节流：mutate() 后 300ms 防抖；flush() 立即落盘，退出前调用。
 - 损坏恢复：JSON 读取失败时重命名为 store.corrupt-<timestamp>.json，以空库启动并通知渲染层。
@@ -260,6 +261,7 @@ upload.ts 负责实际传输：
 | shared/schema.ts | 服务器、环境、目录、操作、上传、设置、run 过滤等 Zod Schema |
 | shared/ipc.ts | CH 通道常量、EV 事件常量、CorralApi 类型 |
 | shared/command.ts | shellQuote、resolveVariables、buildExecScript、buildPathCheckScript、joinRemote、assertSafeRemotePath、findUnquotedVars |
+| shared/pathCheck.ts | 环境与服务器目录校验目标的变化判断 |
 | shared/errors.ts | AppError、classifySshError、describeExitCode、错误裁剪 |
 | shared/id.ts | nanoid 封装 |
 
@@ -341,7 +343,7 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 ## 9. 数据与持久化
 
     %APPDATA%/Corral/
-    ├─ store.json          # servers / envs / runs / settings / schemaVersion
+    ├─ store.json          # servers / envs / pathChecks / runs / settings / schemaVersion
     ├─ secrets.json        # { [serverId]: base64(safeStorage 密文) }
     ├─ known-hosts.json    # 主机指纹记录
     ├─ window-state.json   # 窗口尺寸、位置、最大化状态
@@ -354,6 +356,7 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 - ServerSummary：Server + hasPassword + credentialBroken，仅用于渲染层。
 - DevEnv：serverId、name、paths、actions、description、时间戳。
 - PathEntry：key、label、path、required；workDir 必填。
+- PathCheck：目录状态、checkedAt 与错误信息；按 envId 保存手动校验快照，仅用于历史状态展示。
 - EnvAction：name、command、timeoutSec、confirm、danger、uploads。
 - UploadItem：kind（file/dir）、localPath、targetDir、conflict（backup/overwrite）。
 - Run：环境/服务器/操作名称快照、原始命令、解析后命令、状态、退出码、错误分类、耗时、日志大小、上传统计、远端 PID。
@@ -375,7 +378,7 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 
 ### 10.2 导航与页面
 
-不使用 react-router；uiStore 维护当前页面与选中环境，AppLayout 用 Layout.Sider + Menu 切换四个页面。内容区 padding 为 16px。
+不使用 react-router；uiStore 维护当前页面与选中环境，AppLayout 用 Layout.Sider + Menu 切换四个页面。内容区 padding 为 12px，页面主要区块间距为 12px，筛选等次级区块间距为 8px。
 
 | 页面 | 文件 | 主要内容 |
 | --- | --- | --- |
@@ -407,7 +410,7 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 | uiStore | 当前页面、选中环境、简单历史 |
 | settingsStore | Settings 加载与更新 |
 | serversStore | 服务器列表、连接状态缓存、测试连接 |
-| envsStore | 环境列表、目录校验结果缓存 |
+| envsStore | 环境列表、目录校验快照恢复与失效 |
 | runsStore | 历史列表、筛选、删除/清空 |
 | runStreamStore | 每个 run 的状态、输出行、进度；2MB/2000 行环形裁剪 |
 | hostKeyStore | 当前指纹挑战 |
@@ -462,8 +465,9 @@ electron-builder.yml：
 ## 12. 测试架构
 
 - vitest.config.mts：Node 环境，electron 别名到 tests/mocks/electron.ts，只收集 src/**/*.test.ts。
-- 当前覆盖 10 个测试文件、44 个用例：
+- 当前覆盖 13 个测试文件、74 个用例：
   - shared/command：shell 转义、变量解析、路径拼接、校验脚本解析；
+  - shared/pathCheck、envsStore：校验目标变化、快照保留与失效；
   - store：默认值、原子写、损坏备份、旧数据迁移；
   - vault：异步 safeStorage、损坏凭据；
   - knownHosts：SHA256 指纹、信任/删除；

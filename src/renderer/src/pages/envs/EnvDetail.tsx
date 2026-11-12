@@ -10,6 +10,7 @@ import { useEnvsStore } from '../../stores/envsStore'
 import { useServersStore } from '../../stores/serversStore'
 import { useRunStreamStore } from '../../stores/runStreamStore'
 import { unwrap } from '../../api'
+import { formatDateTime } from '../../utils/format'
 
 const PATH_STATUS: Record<PathCheck['status'], { badge: 'success' | 'warning' | 'error' | 'default'; text: string }> = {
   ok: { badge: 'success', text: '存在且可写' },
@@ -27,6 +28,7 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
   const upsert = useEnvsStore((state) => state.upsert)
   const removeEnv = useEnvsStore((state) => state.remove)
   const server = servers.find((item) => item.id === env.serverId)
+  const checkedAt = checks?.find((item) => item.checkedAt)?.checkedAt
   const testConnection = useServersStore((state) => state.test)
 
   const [validating, setValidating] = useState(false)
@@ -181,7 +183,7 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <Space align="center">
             <Typography.Title level={4} style={{ margin: 0 }}>
@@ -228,10 +230,10 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
             loading={validating}
             onClick={() => void validate()}
           >
-            校验
+            {checks?.length ? '重新校验' : '校验'}
           </Button>
         }
-        style={{ marginBottom: 16 }}
+        style={{ marginBottom: 12 }}
       >
         <Space orientation="vertical" size={6} style={{ width: '100%' }}>
           {env.paths.map((entry) => {
@@ -248,10 +250,15 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
               </div>
             )
           })}
+          {checkedAt ? (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              校验快照：{formatDateTime(checkedAt)}；结果可能已过期。
+            </Typography.Text>
+          ) : null}
         </Space>
       </Card>
 
-      <Card size="small" title="操作" style={{ marginBottom: 16 }}>
+      <Card size="small" title="操作" style={{ marginBottom: 12 }}>
         {env.actions.length === 0 ? (
           <Empty description="还没有配置操作">
             <Button type="primary" onClick={() => setActionsOpen(true)}>

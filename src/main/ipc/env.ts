@@ -3,6 +3,7 @@ import { AppError } from '@shared/errors'
 import { CH } from '@shared/ipc'
 import { newId } from '@shared/id'
 import { buildPathCheckScript, parsePathCheckOutput, shellQuote } from '@shared/command'
+import { envPathCheckTargetChanged, serverPathCheckTargetChanged } from '@shared/pathCheck'
 import { devEnvInputSchema, envUpdatePayloadSchema, envValidatePayloadSchema, idSchema } from '@shared/schema'
 import type { AppContext } from '../context'
 import { handle } from './index'
@@ -28,10 +29,12 @@ export function registerEnvIpc(ctx: AppContext): void {
   handle(ctx, CH.envUpdate, envUpdatePayloadSchema, async ({ id, input }) => {
     const existing = ctx.store.getState().envs.find((item) => item.id === id)
     if (!existing) throw new AppError('config', '环境不存在')
+    const targetChanged = envPathCheckTargetChanged(existing, input)
     await ctx.store.mutate((state) => {
       const target = state.envs.find((item) => item.id === id)
       if (!target) return
       Object.assign(target, input, { updatedAt: new Date().toISOString() })
+      if (targetChanged) delete state.pathChecks[id]
     })
     await ctx.store.flush()
     return ctx.store.getState().envs.find((item) => item.id === id)!
@@ -42,6 +45,7 @@ export function registerEnvIpc(ctx: AppContext): void {
     if (!existing) throw new AppError('config', '环境不存在')
     await ctx.store.mutate((state) => {
       state.envs = state.envs.filter((env) => env.id !== id)
+      delete state.pathChecks[id]
     })
     await ctx.store.flush()
   })
@@ -54,6 +58,9 @@ export function registerEnvIpc(ctx: AppContext): void {
     const password = await ctx.vault.getPassword(server.id)
     if (!password) throw new AppError('auth', '密码不可用，请重新输入密码')
 
+    const paths = env.paths.map((entry) => ({ ...entry }))
+    const envTarget = { serverId: env.serverId, paths }
+    const serverTarget = { host: server.host, port: server.port, username: server.username }
     const settings = ctx.store.getSettings()
     const client = await ctx.ssh.connect({
       host: server.host,
@@ -64,14 +71,14 @@ export function registerEnvIpc(ctx: AppContext): void {
       readyTimeoutMs: 8_000
     })
     try {
-      const script = buildPathCheckScript(env.paths.map((entry) => ({ key: entry.key, path: entry.path })))
+      const script = buildPathCheckScript(paths)
       const result = await ctx.ssh.execCapture(client, 'bash -lc ' + shellQuote(script), {
         timeoutMs: 10_000,
         encoding: settings.outputEncoding
       })
       const checks = parsePathCheckOutput(result.stdout)
       const checkedAt = new Date().toISOString()
-      return env.paths.map<PathCheck>((entry) => {
+      const pathChecks = paths.map<PathCheck>((entry) => {
         const check = checks.find((item) => item.key === entry.key)
         return {
           key: entry.key,
@@ -82,6 +89,21 @@ export function registerEnvIpc(ctx: AppContext): void {
           error: check ? undefined : '未获取到校验结果'
         }
       })
+      await ctx.store.mutate((state) => {
+        const currentEnv = state.envs.find((item) => item.id === envId)
+        const currentServer = state.servers.find((item) => item.id === envTarget.serverId)
+        if (
+          !currentEnv ||
+          !currentServer ||
+          envPathCheckTargetChanged(envTarget, currentEnv) ||
+          serverPathCheckTargetChanged(serverTarget, currentServer)
+        ) {
+          throw new AppError('config', '环境或服务器配置已变化，请重新校验')
+        }
+        state.pathChecks[envId] = pathChecks
+      })
+      await ctx.store.flush()
+      return pathChecks
     } finally {
       try {
         client.end()

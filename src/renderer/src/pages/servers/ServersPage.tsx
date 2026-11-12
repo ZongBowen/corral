@@ -214,7 +214,7 @@ export function ServersPage(): React.ReactElement {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
           服务器
         </Typography.Title>
@@ -229,7 +229,7 @@ export function ServersPage(): React.ReactElement {
         </Space>
       </div>
 
-      <Space style={{ marginBottom: 12 }} wrap>
+      <Space style={{ marginBottom: 8 }} wrap>
         <Input.Search
           allowClear
           placeholder="搜索名称 / IP / 描述 / 标签"

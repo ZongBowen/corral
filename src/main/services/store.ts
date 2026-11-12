@@ -1,14 +1,22 @@
 import { join } from 'node:path'
-import { DEFAULT_SETTINGS, type DevEnv, type Run, type Server, type Settings } from '@shared/types'
-import { devEnvSchema, serverSchema } from '@shared/schema'
+import {
+  DEFAULT_SETTINGS,
+  type DevEnv,
+  type PathCheck,
+  type Run,
+  type Server,
+  type Settings
+} from '@shared/types'
+import { devEnvSchema, pathCheckMapSchema, serverSchema } from '@shared/schema'
 import { readJsonFile, writeFileAtomic } from '../utils/atomicFile'
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export interface StoreState {
   schemaVersion: number
   servers: Server[]
   envs: DevEnv[]
+  pathChecks: Record<string, PathCheck[]>
   runs: Run[]
   settings: Settings
 }
@@ -18,6 +26,7 @@ export function emptyState(): StoreState {
     schemaVersion: SCHEMA_VERSION,
     servers: [],
     envs: [],
+    pathChecks: {},
     runs: [],
     settings: { ...DEFAULT_SETTINGS }
   }
@@ -122,6 +131,14 @@ export class StoreService {
       state.envs = raw.envs
         .map((item) => migrateEnv(item))
         .filter((item): item is DevEnv => item !== null)
+    }
+
+    const pathChecks = pathCheckMapSchema.safeParse(raw.pathChecks)
+    if (pathChecks.success) {
+      const envIds = new Set(state.envs.map((env) => env.id))
+      state.pathChecks = Object.fromEntries(
+        Object.entries(pathChecks.data).filter(([envId]) => envIds.has(envId))
+      )
     }
 
     if (Array.isArray(raw.runs)) {

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { App, Alert, Button, Drawer, Form, Input, InputNumber, Select, Space, Switch, Typography } from 'antd'
 import type { ServerInput, ServerSummary, TestResult } from '@shared/types'
+import { serverPathCheckTargetChanged } from '@shared/pathCheck'
 import { unwrap } from '../../api'
 import { useServersStore } from '../../stores/serversStore'
+import { useEnvsStore } from '../../stores/envsStore'
 
 interface ServerDrawerProps {
   open: boolean
@@ -94,6 +96,9 @@ export function ServerDrawer({ open, editing, seed, onClose }: ServerDrawerProps
         const updated = await unwrap(
           window.api.server.update({ id: editing.id, input: { ...values, tags: values.tags ?? [] } })
         )
+        if (serverPathCheckTargetChanged(editing, updated)) {
+          useEnvsStore.getState().clearServerChecks(editing.id)
+        }
         upsert(updated)
         void message.success('服务器已更新')
       } else {

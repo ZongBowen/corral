@@ -272,6 +272,7 @@ Renderer                Main                        远端服务器
   test -w '<path>' && echo "WRITE_OK" || echo "READONLY"
   ```
 - 详情页展示每个目录的状态徽标：`未校验` / `存在且可写` / `只读` / `不存在`；
+- 手动校验成功后持久化包含 `checkedAt` 的快照，重启后恢复并标注可能过期；目录、所属服务器、SSH 地址/端口或登录账号变化时失效，执行前校验不复用该快照；
 - 执行前校验失败时弹窗提示，并提供「仍要执行」与「取消」。
 
 #### 6.2.3 环境列表与详情
@@ -630,7 +631,7 @@ Corral
 - **危险操作**：`确认` 按钮使用 `color="danger"`（或 `danger` 别名）；连续点击「关闭」不排队，按钮在执行中禁用；同一屏只保留一个 primary 操作（环境详情默认「更新」为 primary，「关闭」为 danger，其余 default）；
 - **状态展示**：连接/运行状态一律使用 `Badge status`（success / processing / default / error）+ 文本，不用 `Tag` 表达关键状态；映射：queued/canceled → default，connecting/validating/uploading/running → processing，success → success，failed/timeout/disconnected → error；服务器在线 → success、检测中 → processing、未检测 → default、离线 → error；`Tag` 仅用于服务器标签、操作类型等分类信息，颜色取预设色板；
 - **表格**：使用默认 `Table` 样式（表头 `surface-container` + 14/600），行 hover 高亮，不加斑马纹；操作列用 `Dropdown` + `MoreOutlined`，不用密集文字按钮；
-- **表单与间距**：抽屉内表单单列；控件高度 32px，label 与控件间距 8px，分组间距 24px；所有 margin/padding/gap 取 4px 网格（4/8/16/24/32）；字号使用 14px 基准，页面标题 16/600，区块标题 14/600，辅助文字 12/400；
+- **表单与间距**：抽屉内表单单列；控件高度 32px，label 与控件间距 8px，分组间距 24px；页面外围与主要区块间距 12px，筛选等次级区块间距 8px；所有 margin/padding/gap 取 4px 网格（4/8/12/16/24/32）；字号使用 14px 基准，页面标题 16/600，区块标题 14/600，辅助文字 12/400；
 - **颜色与 token**：禁止硬编码颜色、圆角、字号；统一使用 antd token 或组件级 token，自定义组件通过 `theme.useToken()` 读取；暗色主题通过 `darkAlgorithm` 生成，不手工反色；
 - **动效**：沿用 antd motion token（0.1s 状态变化 / 0.2s 组件过渡 / 0.3s Drawer、Modal），不自定义 cubic-bezier；
 - **图标**：统一使用 `@ant-design/icons` v6，默认 16px，图标按钮配 `Tooltip`；
@@ -653,7 +654,7 @@ Corral
 | --- | --- | --- | --- |
 | 色彩 | 主色 `#1677FF`；success / warning / error / info 表达状态；预设色板仅用于标签与分类 | 使用默认 `colorPrimary`；危险操作 `colorError`；标签使用预设色；不新增品牌色 | 符合 |
 | 字体 | 基准 14px，仅使用 400 / 600 字重；表格头 14/600；代码 13px | 沿用 antd 字体与字重；日志面板使用 13px 等宽字体；标题使用 600，不出现 700+ 或斜体 | 符合 |
-| 间距 | 4px 网格（4/8/16/24/32）；控件高度 32px；卡片内边距 24px | 导航 200px、抽屉 520px、表单单列间距 8/24px 均落在网格上 | 符合 |
+| 间距 | 4px 网格（4/8/12/16/24/32）；控件高度 32px；默认卡片内边距 24px，小卡片 12px | 页面主要区块 12px、次级区块 8px；导航 200px、抽屉 520px、表单单列间距 8/24px 均落在网格上 | 符合 |
 | 圆角 | 控件 6px、容器 8px、标签与浮层 4px；胶囊形仅用于头像/徽标 | 使用默认圆角，不做全局覆盖；不使用胶囊按钮 | 符合 |
 | 层级 | 三层表面：layout / container / elevated；扁平优先，阴影仅用于浮层 | 页面使用 `colorBgLayout`，内容使用 Card；仅 Drawer / Modal / Dropdown 使用阴影 | 符合 |
 | 按钮 | 同一表面只保留一个 primary；危险操作使用 error 语义 | 环境详情以「更新」为 primary，「关闭」为 danger，其余 default；列表页「新增」为唯一 primary | 已落实 |
@@ -784,7 +785,7 @@ export interface Run {
 
 ```
 %APPDATA%/Corral/
-├── store.json          # servers / envs / runs 元数据 / settings / schemaVersion
+├── store.json          # servers / envs / pathChecks / runs 元数据 / settings / schemaVersion
 ├── secrets.json        # { [serverId]: base64(safeStorage 加密后的 payload) }
 ├── known-hosts.json    # host key 指纹
 ├── settings.json       # 可选，与 store 合并亦可（见下）
@@ -797,9 +798,10 @@ export interface Run {
 
 ```ts
 interface StoreFile {
-  schemaVersion: 1;
+  schemaVersion: 2;
   servers: Server[];
   envs: DevEnv[];
+  pathChecks: Record<string, PathCheck[]>; // 手动校验快照，不随配置导出
   runs: Run[];              // 仅元数据，最多保留条数由设置控制
   settings: Settings;
 }
@@ -879,7 +881,7 @@ interface StoreFile {
 | `server:test` | `id` 或临时 `ServerInput` | `TestResult` | 含耗时、发行版信息 |
 | `env:list` | `{ serverId? }` | `DevEnv[]` | |
 | `env:create` / `env:update` / `env:remove` | — | `DevEnv` / `void` | |
-| `env:validatePaths` | `envId` | `PathCheck[]` | 需要连接 |
+| `env:validatePaths` | `envId` | `PathCheck[]` | 需要连接，成功后保存快照 |
 | `run:precheck` | `{ envId, actionId }` | `RunPrecheck` | 展开上传目标、统计大小、检查本地文件、返回预览命令 |
 | `run:start` | `{ envId, actionId }` | `{ runId }` | 立即返回，后续走事件 |
 | `run:cancel` | `runId` | `void` | 尽力终止（含上传阶段） |

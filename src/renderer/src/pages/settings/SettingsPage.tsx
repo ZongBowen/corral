@@ -63,7 +63,7 @@ export function SettingsPage(): React.ReactElement {
 
   return (
     <div style={{ maxWidth: 880 }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
           设置
         </Typography.Title>
@@ -74,7 +74,7 @@ export function SettingsPage(): React.ReactElement {
       </div>
 
       <Form form={form} layout="vertical">
-        <Card size="small" title="外观与执行" style={{ marginBottom: 16 }}>
+        <Card size="small" title="外观与执行" style={{ marginBottom: 12 }}>
           <Space size={24} wrap align="start">
             <Form.Item name="theme" label="主题" style={{ width: 180 }}>
               <Select
@@ -99,7 +99,7 @@ export function SettingsPage(): React.ReactElement {
           </Space>
         </Card>
 
-        <Card size="small" title="上传" style={{ marginBottom: 16 }}>
+        <Card size="small" title="上传" style={{ marginBottom: 12 }}>
           <Space size={24} wrap align="start">
             <Form.Item name="defaultConflict" label="默认冲突策略" style={{ width: 180 }}>
               <Select
@@ -115,7 +115,7 @@ export function SettingsPage(): React.ReactElement {
           </Space>
         </Card>
 
-        <Card size="small" title="日志与兼容性" style={{ marginBottom: 16 }}>
+        <Card size="small" title="日志与兼容性" style={{ marginBottom: 12 }}>
           <Space size={24} wrap align="start">
             <Form.Item name="logRetentionCount" label="保留条数" style={{ width: 160 }}>
               <InputNumber min={1} max={10000} style={{ width: '100%' }} />

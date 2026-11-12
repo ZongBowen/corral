@@ -42,7 +42,7 @@ export function AppLayout(): React.ReactElement {
       <Layout>
         <Layout.Content
           style={{
-            padding: 16,
+            padding: 12,
             overflow: page === 'envs' ? 'hidden' : 'auto',
             background: token.colorBgLayout
           }}

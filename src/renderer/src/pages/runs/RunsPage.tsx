@@ -209,7 +209,7 @@ export function RunsPage(): React.ReactElement {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
           执行历史
         </Typography.Title>
@@ -224,7 +224,7 @@ export function RunsPage(): React.ReactElement {
         </Space>
       </div>
 
-      <Space style={{ marginBottom: 12 }} wrap>
+      <Space style={{ marginBottom: 8 }} wrap>
         <Select
           allowClear
           placeholder="服务器"

@@ -189,10 +189,22 @@ export const runSchema = z.object({
   uploadStats: uploadStatsSchema.optional()
 })
 
+export const pathCheckSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  path: z.string(),
+  status: z.enum(['unknown', 'ok', 'readonly', 'missing']),
+  checkedAt: z.string().optional(),
+  error: z.string().optional()
+})
+
+export const pathCheckMapSchema = z.record(idSchema, z.array(pathCheckSchema))
+
 export const storeFileSchema = z.object({
   schemaVersion: z.number().int().min(1),
   servers: z.array(serverSchema),
   envs: z.array(devEnvSchema),
+  pathChecks: pathCheckMapSchema,
   runs: z.array(runSchema),
   settings: settingsSchema
 })

@@ -70,7 +70,7 @@ export function EnvsPage(): React.ReactElement {
   const selectedEnv = envs.find((env) => env.id === selectedEnvId) ?? null
 
   return (
-    <div style={{ display: 'flex', gap: 16, height: '100%' }}>
+    <div style={{ display: 'flex', gap: 12, height: '100%' }}>
       <div
         style={{
           width: 280,

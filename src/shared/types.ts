@@ -256,6 +256,7 @@ export interface BootState {
   dataDir: string
   servers: ServerSummary[]
   envs: DevEnv[]
+  pathChecks: Record<string, PathCheck[]>
   settings: Settings
   activeRunIds: string[]
 }

@@ -1,6 +1,7 @@
 import type { ServerSummary } from '@shared/types'
 import { AppError } from '@shared/errors'
 import { CH } from '@shared/ipc'
+import { serverPathCheckTargetChanged } from '@shared/pathCheck'
 import { newId } from '@shared/id'
 import {
   idSchema,
@@ -44,6 +45,7 @@ export function registerServerIpc(ctx: AppContext): void {
     const { password, clearPassword, ...rest } = input
     const now = new Date().toISOString()
     const hostChanged = server.host !== rest.host || server.port !== rest.port
+    const pathCheckTargetChanged = serverPathCheckTargetChanged(server, rest)
 
     if (clearPassword) {
       await ctx.vault.remove(id)
@@ -55,6 +57,11 @@ export function registerServerIpc(ctx: AppContext): void {
       const target = state.servers.find((item) => item.id === id)
       if (!target) return
       Object.assign(target, rest, { tags: rest.tags ?? target.tags, updatedAt: now })
+      if (pathCheckTargetChanged) {
+        for (const env of state.envs) {
+          if (env.serverId === id) delete state.pathChecks[env.id]
+        }
+      }
     })
     if (hostChanged) {
       await ctx.knownHosts.remove(server.host, server.port)
@@ -69,6 +76,9 @@ export function registerServerIpc(ctx: AppContext): void {
     if (!server) throw new AppError('config', '服务器不存在')
     await ctx.store.mutate((state) => {
       state.servers = state.servers.filter((item) => item.id !== id)
+      for (const env of state.envs) {
+        if (env.serverId === id) delete state.pathChecks[env.id]
+      }
       state.envs = state.envs.filter((env) => env.serverId !== id)
     })
     await ctx.vault.remove(id)
