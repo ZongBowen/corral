@@ -108,9 +108,11 @@ export function EnvActionsDrawer({ open, env, onClose, onSave }: EnvActionsDrawe
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 超时 {action.timeoutSec === 0 ? '不限' : String(action.timeoutSec) + 's'}
               </Typography.Text>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                上传 {action.uploads.length} 项
-              </Typography.Text>
+              {action.uploadRules.length > 0 ? (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  上传目标 {action.uploadRules.length} 个
+                </Typography.Text>
+              ) : null}
               <div style={{ flex: 1 }} />
               <Button
                 size="small"

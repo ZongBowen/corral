@@ -189,9 +189,11 @@ export function RunsPage(): React.ReactElement {
       title: '上传',
       width: 170,
       render: (_, run) =>
-        run.uploadStats
-          ? String(run.uploadStats.fileCount) + ' 个文件 · ' + formatBytes(run.uploadStats.totalBytes)
-          : '—'
+        run.uploadMode === 'skip'
+          ? '已跳过'
+          : run.uploadStats
+            ? String(run.uploadStats.fileCount) + ' 个文件 · ' + formatBytes(run.uploadStats.totalBytes)
+            : '—'
     },
     {
       title: '操作',
@@ -302,8 +304,37 @@ export function RunsPage(): React.ReactElement {
               <Descriptions.Item label="耗时">{formatDuration(detail.durationMs)}</Descriptions.Item>
               <Descriptions.Item label="服务器">{detail.serverName}</Descriptions.Item>
               <Descriptions.Item label="环境">{detail.envName}</Descriptions.Item>
-              {detail.uploadStats ? (
+              {detail.uploadMode === 'skip' ? (
                 <Descriptions.Item label="上传" span={2}>
+                  本次跳过上传（文件已手工准备）
+                </Descriptions.Item>
+              ) : null}
+              {detail.uploads?.length ? (
+                <Descriptions.Item label="上传清单" span={2}>
+                  <Space orientation="vertical" size={4}>
+                    {detail.uploads.map((item) => (
+                      <Typography.Text key={item.id} style={{ fontSize: 12 }}>
+                        {item.kind === 'file' ? '文件' : '目录'}{' '}
+                        <span className="corral-code">{item.localPath} → {item.targetDir}</span>
+                        {' · '}{item.conflict === 'backup' ? '覆盖前备份' : '直接覆盖'}
+                      </Typography.Text>
+                    ))}
+                  </Space>
+                </Descriptions.Item>
+              ) : null}
+              {detail.uploadVariables && Object.keys(detail.uploadVariables).length > 0 ? (
+                <Descriptions.Item label="上传变量" span={2}>
+                  <Space orientation="vertical" size={4}>
+                    {Object.entries(detail.uploadVariables).map(([key, value]) => (
+                      <Typography.Text key={key} style={{ fontSize: 12 }}>
+                        <span className="corral-code">{'${' + key + '}'}</span> = {value}
+                      </Typography.Text>
+                    ))}
+                  </Space>
+                </Descriptions.Item>
+              ) : null}
+              {detail.uploadStats ? (
+                <Descriptions.Item label="上传统计" span={2}>
                   {String(detail.uploadStats.fileCount) +
                     ' 个文件 · 共 ' +
                     formatBytes(detail.uploadStats.totalBytes) +

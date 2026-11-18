@@ -1,11 +1,17 @@
 import { EventEmitter } from 'node:events'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Client, ClientChannel } from 'ssh2'
 import { AppError } from '@shared/errors'
-import { DEFAULT_SETTINGS, type DevEnv, type RunStatus, type Server } from '@shared/types'
+import {
+  DEFAULT_SETTINGS,
+  type DevEnv,
+  type RunStatus,
+  type Server,
+  type UploadItem
+} from '@shared/types'
 import type { SshService } from './ssh'
 import { StoreService } from './store'
 import { LogStore } from './logStore'
@@ -81,7 +87,7 @@ beforeEach(async () => {
         command: 'cd "\${workDir}" && ./restart.sh',
         timeoutSec: 300,
         confirm: true,
-        uploads: []
+        uploadRules: []
       }
     ],
     createdAt: now,
@@ -135,6 +141,167 @@ describe('RunManager', () => {
     const result = await manager.precheck('e1', 'a1')
     expect(result.resolvedCommand).toBe('cd "/opt/app" && ./restart.sh')
     expect(result.missing).toEqual([])
+  })
+
+  it('prechecks runtime upload selections', async () => {
+    env.actions[0].command = 'unzip "${packagePath}"'
+    env.actions[0].uploadRules = [
+      { id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup', variableKey: 'package' }
+    ]
+    const localPath = join(dir, 'app.jar')
+    await writeFile(localPath, 'abc', 'utf8')
+    const upload: UploadItem = {
+      id: 'u1',
+      ruleId: 'r1',
+      kind: 'file',
+      localPath,
+      targetDir: '${workDir}/lib',
+      conflict: 'backup'
+    }
+    const manager = createManager(new FakeSsh('success'))
+
+    const result = await manager.precheck('e1', 'a1', [upload])
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        localPath,
+        kind: 'file',
+        targetPath: '/opt/app/lib/app.jar',
+        bytes: 3,
+        fileCount: 1
+      })
+    ])
+    expect(result.uploadVariables).toEqual({
+      packageName: 'app.jar',
+      packagePath: '/opt/app/lib/app.jar'
+    })
+    expect(result.resolvedCommand).toBe('unzip "/opt/app/lib/app.jar"')
+  })
+
+  it('requires a local selection for every upload rule', async () => {
+    env.actions[0].uploadRules = [{ id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup' }]
+    const manager = createManager(new FakeSsh('success'))
+
+    await expect(manager.precheck('e1', 'a1', [])).rejects.toThrow('请为每个上传目标选择')
+  })
+
+  it('requires exactly one file for an upload variable', async () => {
+    env.actions[0].uploadRules = [
+      { id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup', variableKey: 'package' }
+    ]
+    const upload: UploadItem = {
+      id: 'u1',
+      ruleId: 'r1',
+      kind: 'dir',
+      localPath: dir,
+      targetDir: '${workDir}/lib',
+      conflict: 'backup'
+    }
+    const manager = createManager(new FakeSsh('success'))
+
+    await expect(manager.precheck('e1', 'a1', [upload])).rejects.toThrow('必须选择一个文件')
+  })
+
+  it('rejects skip mode when the command references upload variables', async () => {
+    env.actions[0].command = 'unzip "${packagePath}"'
+    env.actions[0].uploadRules = [
+      { id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup', variableKey: 'package' }
+    ]
+    const manager = createManager(new FakeSsh('success'))
+
+    await expect(manager.precheck('e1', 'a1', [], 'skip')).rejects.toThrow('跳过上传无法确定')
+  })
+
+  it('allows skipping configured uploads for one run', async () => {
+    env.actions[0].uploadRules = [
+      { id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup', variableKey: 'package' }
+    ]
+    const ssh = new FakeSsh('success')
+    const manager = createManager(ssh)
+
+    const precheck = await manager.precheck('e1', 'a1', [], 'skip')
+    expect(precheck.items).toEqual([])
+    expect(precheck.fileCount).toBe(0)
+
+    const { runId } = await manager.start('e1', 'a1', [], false, 'skip')
+    await waitStatus(runId, 'success')
+    await waitDone(manager, runId)
+
+    const run = store.getState().runs.find((item) => item.id === runId)!
+    expect(run.uploadMode).toBe('skip')
+    expect(run.uploads).toEqual([])
+    expect(ssh.openSftp).not.toHaveBeenCalled()
+    const chunk = await logs.readChunk(runId, 0, 4096)
+    expect(chunk.content).toContain('本次跳过执行前上传')
+  })
+
+  it('rejects upload selections in skip mode', async () => {
+    env.actions[0].uploadRules = [{ id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup' }]
+    const upload: UploadItem = {
+      id: 'u1',
+      ruleId: 'r1',
+      kind: 'file',
+      localPath: join(dir, 'app.jar'),
+      targetDir: '${workDir}/lib',
+      conflict: 'backup'
+    }
+    const manager = createManager(new FakeSsh('success'))
+
+    await expect(manager.precheck('e1', 'a1', [upload], 'skip')).rejects.toThrow(
+      '跳过上传时不能包含上传项'
+    )
+  })
+
+  it('revalidates local sources before creating a run', async () => {
+    env.actions[0].uploadRules = [{ id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup' }]
+    const upload: UploadItem = {
+      id: 'u1',
+      ruleId: 'r1',
+      kind: 'file',
+      localPath: join(dir, 'missing.jar'),
+      targetDir: '${workDir}/lib',
+      conflict: 'backup'
+    }
+    const ssh = new FakeSsh('success')
+    const manager = createManager(ssh)
+
+    await expect(manager.start('e1', 'a1', [upload])).rejects.toThrow('本地文件不存在')
+    expect(store.getState().runs).toEqual([])
+    expect(ssh.connect).not.toHaveBeenCalled()
+  })
+
+  it('records the upload selection on the run', async () => {
+    env.actions[0].command = 'unzip "${packagePath}"'
+    env.actions[0].uploadRules = [
+      { id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup', variableKey: 'package' }
+    ]
+    const localPath = join(dir, 'app.jar')
+    await writeFile(localPath, 'abc', 'utf8')
+    const upload: UploadItem = {
+      id: 'u1',
+      ruleId: 'r1',
+      kind: 'file',
+      localPath,
+      targetDir: '${workDir}/lib',
+      conflict: 'backup'
+    }
+    const ssh = new FakeSsh('success')
+    ssh.openSftp.mockRejectedValue(new AppError('upload', '测试上传失败'))
+    const manager = createManager(ssh)
+
+    const { runId } = await manager.start('e1', 'a1', [upload])
+    const savedRun = store.getState().runs.find((item) => item.id === runId)
+    expect(savedRun?.uploads).toEqual([upload])
+    expect(savedRun?.uploadVariables).toEqual({
+      packageName: 'app.jar',
+      packagePath: '/opt/app/lib/app.jar'
+    })
+    expect(savedRun?.resolvedCommand).toBe('unzip "/opt/app/lib/app.jar"')
+
+    await waitStatus(runId, 'failed')
+    await waitDone(manager, runId)
+    expect(ssh.openSftp).toHaveBeenCalled()
+    expect(store.getState().runs.find((item) => item.id === runId)?.errorKind).toBe('upload')
   })
 
   it('runs a command and records success', async () => {

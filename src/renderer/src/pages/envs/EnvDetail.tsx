@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import { App, Badge, Button, Card, Empty, Space, Tag, Typography, theme } from 'antd'
 import { DeleteOutlined, EditOutlined, SafetyCertificateOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons'
-import type { DevEnv, EnvAction, PathCheck, RunPrecheck } from '@shared/types'
+import type {
+  DevEnv,
+  EnvAction,
+  PathCheck,
+  Run,
+  RunPrecheck,
+  RunUploadMode,
+  UploadItem
+} from '@shared/types'
 import { StatusBadge } from '../../components/StatusBadge'
 import { RunConsole } from '../../components/RunConsole'
 import { ConfirmRunModal } from '../../components/ConfirmRunModal'
@@ -34,8 +42,14 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
   const [validating, setValidating] = useState(false)
   const [detecting, setDetecting] = useState(false)
   const [serverInfo, setServerInfo] = useState<string | null>(null)
-  const [pending, setPending] = useState<{ action: EnvAction; precheck: RunPrecheck } | null>(null)
+  const [pending, setPending] = useState<{
+    action: EnvAction
+    precheck: RunPrecheck | null
+    uploads: UploadItem[]
+    uploadMode: RunUploadMode
+  } | null>(null)
   const [starting, setStarting] = useState(false)
+  const [prechecking, setPrechecking] = useState(false)
   const [actionsOpen, setActionsOpen] = useState(false)
 
   const stream = useRunStreamStore((state) => {
@@ -50,27 +64,27 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
   })
 
   useEffect(() => {
-    if (!stream || stream.status !== 'failed') return
+    if (!stream || stream.status !== 'failed' || !stream.run) return
     if (!stream.errorMessage?.startsWith('目录校验失败')) return
-    const actionId = stream.actionId
+    const failedRun = stream.run
     notification.warning({
       key: 'path-check-' + stream.runId,
       message: '目录校验失败',
       description: stream.errorMessage,
       duration: 0,
-      btn: actionId ? (
+      btn: (
         <Button
           size="small"
           onClick={() => {
             notification.destroy('path-check-' + stream.runId)
-            void startActionById(actionId, true)
+            void retryRun(failedRun)
           }}
         >
           仍要执行
         </Button>
-      ) : undefined
+      )
     })
-  }, [stream?.status, stream?.runId])
+  }, [stream?.status, stream?.runId, stream?.run])
 
   const detect = async (): Promise<void> => {
     setDetecting(true)
@@ -109,21 +123,22 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
     }
   }
 
-  const startActionById = async (actionId: string, force = false): Promise<void> => {
-    const action = env.actions.find((item) => item.id === actionId)
+  const retryRun = async (failedRun: Run): Promise<void> => {
+    const action = env.actions.find((item) => item.id === failedRun.actionId)
     if (!action) return
-    await beginRun(action, null, force)
+    await beginRun(action, failedRun.uploads ?? [], true, failedRun.uploadMode ?? 'upload')
   }
 
   const beginRun = async (
     action: EnvAction,
-    precheck: RunPrecheck | null,
-    force = false
+    uploads: UploadItem[],
+    force = false,
+    uploadMode: RunUploadMode = 'upload'
   ): Promise<void> => {
     try {
       setStarting(true)
       const result = await unwrap(
-        window.api.run.start({ envId: env.id, actionId: action.id, force })
+        window.api.run.start({ envId: env.id, actionId: action.id, uploads, uploadMode, force })
       )
       useRunStreamStore.getState().begin(result.runId, env.id, action.id)
       setPending(null)
@@ -136,17 +151,42 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
   }
 
   const requestRun = async (action: EnvAction): Promise<void> => {
+    if (action.uploadRules.length > 0) {
+      setPending({ action, precheck: null, uploads: [], uploadMode: 'upload' })
+      return
+    }
     try {
       const precheck = await unwrap(
-        window.api.run.precheck({ envId: env.id, actionId: action.id })
+        window.api.run.precheck({ envId: env.id, actionId: action.id, uploads: [], uploadMode: 'upload' })
       )
       if (action.confirm || precheck.missing.length > 0 || precheck.warnings.length > 0) {
-        setPending({ action, precheck })
+        setPending({ action, precheck, uploads: [], uploadMode: 'upload' })
         return
       }
-      await beginRun(action, precheck)
+      await beginRun(action, [])
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const precheckPending = async (): Promise<void> => {
+    if (!pending) return
+    const current = pending
+    setPrechecking(true)
+    try {
+      const precheck = await unwrap(
+        window.api.run.precheck({
+          envId: env.id,
+          actionId: current.action.id,
+          uploads: current.uploadMode === 'skip' ? [] : current.uploads,
+          uploadMode: current.uploadMode
+        })
+      )
+      setPending({ ...current, precheck })
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPrechecking(false)
     }
   }
 
@@ -301,10 +341,30 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
         open={Boolean(pending)}
         action={pending?.action ?? null}
         precheck={pending?.precheck ?? null}
+        uploads={pending?.uploads ?? []}
+        uploadMode={pending?.uploadMode ?? 'upload'}
         loading={starting}
+        prechecking={prechecking}
+        onUploadsChange={(uploads) => {
+          setPending((current) => (current ? { ...current, uploads } : current))
+        }}
+        onUploadModeChange={(uploadMode) => {
+          setPending((current) => (current ? { ...current, uploadMode } : current))
+        }}
+        onPrecheck={() => void precheckPending()}
+        onBack={() => {
+          setPending((current) => (current ? { ...current, precheck: null } : current))
+        }}
         onCancel={() => setPending(null)}
         onConfirm={() => {
-          if (pending) void beginRun(pending.action, pending.precheck)
+          if (pending) {
+            void beginRun(
+              pending.action,
+              pending.uploadMode === 'skip' ? [] : pending.uploads,
+              false,
+              pending.uploadMode
+            )
+          }
         }}
       />
 

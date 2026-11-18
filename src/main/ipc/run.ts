@@ -14,12 +14,12 @@ import type { AppContext } from '../context'
 import { handle } from './index'
 
 export function registerRunIpc(ctx: AppContext): void {
-  handle(ctx, CH.runPrecheck, runPrecheckSchema, async ({ envId, actionId }) => {
-    return await ctx.runner.precheck(envId, actionId)
+  handle(ctx, CH.runPrecheck, runPrecheckSchema, async ({ envId, actionId, uploads, uploadMode }) => {
+    return await ctx.runner.precheck(envId, actionId, uploads, uploadMode)
   })
 
-  handle(ctx, CH.runStart, runStartSchema, async ({ envId, actionId, force }) => {
-    return await ctx.runner.start(envId, actionId, force ?? false)
+  handle(ctx, CH.runStart, runStartSchema, async ({ envId, actionId, uploads, uploadMode, force }) => {
+    return await ctx.runner.start(envId, actionId, uploads, force ?? false, uploadMode)
   })
 
   handle(ctx, CH.runCancel, runCancelSchema, async ({ runId }) => {

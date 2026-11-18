@@ -1,11 +1,14 @@
+import { basename } from 'node:path'
 import type { Client, ClientChannel, SFTPWrapper } from 'ssh2'
 import { AppError, describeExitCode } from '@shared/errors'
 import { EV } from '@shared/ipc'
 import {
   buildExecScript,
   buildPathCheckScript,
+  extractVariables,
+  joinRemote,
   parsePathCheckOutput,
-  resolveVariables,
+  resolveCommandVariables,
   shellQuote
 } from '@shared/command'
 import { newId } from '@shared/id'
@@ -17,15 +20,17 @@ import type {
   RunPrecheck,
   RunPrecheckItem,
   RunStatus,
+  RunUploadMode,
   Server,
-  Settings
+  Settings,
+  UploadItem
 } from '@shared/types'
 import { isTerminal } from '@shared/types'
 import type { StoreService } from './store'
 import type { VaultService } from './vault'
 import type { SshConnectOptions, SshService } from './ssh'
 import type { LogStore, LogWriter } from './logStore'
-import { buildUploadPlan } from './uploadPlan'
+import { buildUploadPlan, type UploadPlan } from './uploadPlan'
 import { OutputBatcher } from './batcher'
 import { createTextDecoder, type TextDecoderLike } from './textDecoder'
 import { Uploader } from './upload'
@@ -64,6 +69,9 @@ interface ActiveRun {
   run: Run
   env: DevEnv
   action: EnvAction
+  uploadPlan: UploadPlan
+  uploadVariables: Record<string, string>
+  executionCommand: string
   server: Server
   password: string | null
   force: boolean
@@ -92,15 +100,22 @@ export class RunManager {
     return this.deps.now ? this.deps.now() : Date.now()
   }
 
-  async precheck(envId: string, actionId: string): Promise<RunPrecheck> {
+  async precheck(
+    envId: string,
+    actionId: string,
+    uploads: UploadItem[] = [],
+    uploadMode: RunUploadMode = 'upload'
+  ): Promise<RunPrecheck> {
     const env = this.findEnv(envId)
     const action = this.findAction(env, actionId)
     const vars = buildVars(env)
-    const resolved = resolveVariables(action.command, vars)
+    this.validateUploads(action, uploads, uploadMode)
+    const plan = await buildUploadPlan(uploads, vars)
+    const uploadVariables = uploadMode === 'skip' ? {} : buildUploadVariables(action, plan)
+    const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
     if (resolved.missing.length > 0) {
       throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
     }
-    const plan = await buildUploadPlan(action.uploads, vars)
     const items: RunPrecheckItem[] = plan.items.map((item) => ({
       localPath: item.item.localPath,
       kind: item.item.kind,
@@ -110,7 +125,8 @@ export class RunManager {
       fileCount: item.files.length
     }))
     return {
-      resolvedCommand: resolved.text,
+      resolvedCommand: resolved.preview,
+      uploadVariables,
       items,
       totalBytes: plan.totalBytes,
       fileCount: plan.fileCount,
@@ -119,7 +135,13 @@ export class RunManager {
     }
   }
 
-  async start(envId: string, actionId: string, force = false): Promise<{ runId: string }> {
+  async start(
+    envId: string,
+    actionId: string,
+    uploads: UploadItem[] = [],
+    force = false,
+    uploadMode: RunUploadMode = 'upload'
+  ): Promise<{ runId: string }> {
     if (this.envLocks.has(envId)) {
       throw new AppError('config', '该环境已有执行中的任务')
     }
@@ -127,7 +149,14 @@ export class RunManager {
     const action = this.findAction(env, actionId)
     const server = this.findServer(env.serverId)
     const vars = buildVars(env)
-    const resolved = resolveVariables(action.command, vars)
+    this.validateUploads(action, uploads, uploadMode)
+    const uploadSnapshot = uploads.map((item) => ({ ...item }))
+    const uploadPlan = await buildUploadPlan(uploadSnapshot, vars)
+    if (uploadPlan.missing.length > 0) {
+      throw new AppError('upload', '本地文件不存在：' + uploadPlan.missing.join('、'))
+    }
+    const uploadVariables = uploadMode === 'skip' ? {} : buildUploadVariables(action, uploadPlan)
+    const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
     if (resolved.missing.length > 0) {
       throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
     }
@@ -141,7 +170,10 @@ export class RunManager {
       actionId: action.id,
       actionName: action.name,
       command: action.command,
-      resolvedCommand: resolved.text,
+      resolvedCommand: resolved.preview,
+      uploadMode,
+      uploadVariables,
+      uploads: uploadSnapshot,
       status: 'queued',
       startedAt: new Date(this.now()).toISOString()
     }
@@ -150,6 +182,9 @@ export class RunManager {
       run,
       env,
       action,
+      uploadPlan,
+      uploadVariables,
+      executionCommand: resolved.command,
       server,
       password: await this.deps.vault.getPassword(server.id),
       force,
@@ -294,9 +329,11 @@ export class RunManager {
       }
       if (ctx.abort.signal.aborted) throw new AppError('canceled', '已取消')
 
-      if (ctx.action.uploads.length > 0) {
+      if (ctx.uploadPlan.items.length > 0) {
         this.setStatus(ctx, 'uploading')
         await this.upload(ctx, settings)
+      } else if (ctx.run.uploadMode === 'skip' && ctx.action.uploadRules.length > 0) {
+        this.system(ctx, '本次跳过执行前上传')
       }
       if (ctx.abort.signal.aborted) throw new AppError('canceled', '已取消')
 
@@ -343,11 +380,7 @@ export class RunManager {
 
   private async upload(ctx: ActiveRun, settings: Settings): Promise<void> {
     if (!ctx.client) throw new AppError('upload', '连接已关闭')
-    const vars = buildVars(ctx.env)
-    const plan = await buildUploadPlan(ctx.action.uploads, vars)
-    if (plan.missing.length > 0) {
-      throw new AppError('upload', '本地文件不存在：' + plan.missing.join('、'))
-    }
+    const plan = ctx.uploadPlan
     const sftp = await this.deps.ssh.openSftp(ctx.client)
     ctx.sftp = sftp
     const uploader = new Uploader()
@@ -380,7 +413,10 @@ export class RunManager {
   private async runCommand(ctx: ActiveRun, settings: Settings): Promise<void> {
     if (!ctx.client) throw new AppError('network', '连接已关闭')
     this.system(ctx, '开始执行：' + ctx.action.name)
-    const stream = await this.deps.ssh.execStream(ctx.client, buildExecScript(ctx.run.resolvedCommand))
+    const stream = await this.deps.ssh.execStream(
+      ctx.client,
+      buildExecScript(ctx.executionCommand, ctx.uploadVariables)
+    )
     ctx.stream = stream
     if (ctx.abort.signal.aborted) {
       void this.terminate(ctx)
@@ -581,6 +617,52 @@ export class RunManager {
     }
   }
 
+  private validateUploads(action: EnvAction, uploads: UploadItem[], uploadMode: RunUploadMode): void {
+    if (uploadMode === 'skip') {
+      if (action.uploadRules.length === 0) throw new AppError('config', '该操作未配置执行前上传')
+      const commandVariables = extractVariables(action.command)
+      const unavailable = uploadVariableKeys(action).filter((key) => commandVariables.includes(key))
+      if (unavailable.length > 0) {
+        const names = unavailable.map((key) => '${' + key + '}').join('、')
+        throw new AppError('config', '跳过上传无法确定 ' + names + '，请使用上传模式或移除变量')
+      }
+      if (uploads.length > 0) throw new AppError('config', '跳过上传时不能包含上传项')
+      return
+    }
+
+    const rules = new Map(action.uploadRules.map((rule) => [rule.id, rule]))
+    if (rules.size === 0) {
+      if (uploads.length > 0) throw new AppError('config', '该操作未配置执行前上传')
+      return
+    }
+
+    const selectedRuleIds = new Set<string>()
+    for (const item of uploads) {
+      const rule = item.ruleId ? rules.get(item.ruleId) : undefined
+      if (!rule) throw new AppError('config', '上传项未关联有效的上传目标')
+      if (item.targetDir !== rule.targetDir || item.conflict !== rule.conflict) {
+        throw new AppError('config', '上传项与当前操作规则不一致，请重新选择')
+      }
+      selectedRuleIds.add(rule.id)
+    }
+
+    const missing = action.uploadRules.filter((rule) => !selectedRuleIds.has(rule.id))
+    if (missing.length > 0) {
+      throw new AppError(
+        'config',
+        '请为每个上传目标选择本地文件或目录：' + missing.map((rule) => rule.targetDir).join('、')
+      )
+    }
+
+    for (const rule of action.uploadRules) {
+      if (!rule.variableKey) continue
+      const selected = uploads.filter((item) => item.ruleId === rule.id)
+      if (selected.length !== 1 || selected[0].kind !== 'file') {
+        throw new AppError('config', '绑定命令变量的上传目标必须选择一个文件：' + rule.targetDir)
+      }
+    }
+  }
+
   private findEnv(envId: string): DevEnv {
     const env = this.deps.store.getState().envs.find((item) => item.id === envId)
     if (!env) throw new AppError('config', '环境不存在')
@@ -598,6 +680,30 @@ export class RunManager {
     if (!server) throw new AppError('config', '服务器不存在')
     return server
   }
+}
+
+function uploadVariableKeys(action: EnvAction): string[] {
+  return action.uploadRules.flatMap((rule) =>
+    rule.variableKey ? [rule.variableKey + 'Name', rule.variableKey + 'Path'] : []
+  )
+}
+
+function buildUploadVariables(action: EnvAction, plan: UploadPlan): Record<string, string> {
+  const variables: Record<string, string> = {}
+  for (const rule of action.uploadRules) {
+    if (!rule.variableKey) continue
+    const plannedItems = plan.items.filter((item) => item.item.ruleId === rule.id)
+    if (plannedItems.length !== 1 || plannedItems[0].item.kind !== 'file') {
+      throw new AppError('config', '无法为上传变量确定唯一文件：' + rule.variableKey)
+    }
+    const planned = plannedItems[0]
+    const file = planned.files[0]
+    const name = file?.rel ?? basename(planned.item.localPath)
+    if (!name) throw new AppError('config', '无法为上传变量确定文件名：' + rule.variableKey)
+    variables[rule.variableKey + 'Name'] = name
+    variables[rule.variableKey + 'Path'] = file?.targetPath ?? joinRemote(planned.targetDir, name)
+  }
+  return variables
 }
 
 export function buildVars(env: DevEnv): Record<string, string> {

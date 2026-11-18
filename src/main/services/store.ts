@@ -5,12 +5,14 @@ import {
   type PathCheck,
   type Run,
   type Server,
-  type Settings
+  type Settings,
+  type UploadRule
 } from '@shared/types'
 import { devEnvSchema, pathCheckMapSchema, serverSchema } from '@shared/schema'
+import { newId } from '@shared/id'
 import { readJsonFile, writeFileAtomic } from '../utils/atomicFile'
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export interface StoreState {
   schemaVersion: number
@@ -154,6 +156,29 @@ export class StoreService {
   }
 }
 
+function migrateUploadRules(action: LooseRecord): UploadRule[] {
+  if (Array.isArray(action.uploadRules)) return action.uploadRules as UploadRule[]
+  if (!Array.isArray(action.uploads)) return []
+
+  const rules: UploadRule[] = []
+  const seen = new Set<string>()
+  for (const value of action.uploads) {
+    if (!value || typeof value !== 'object') continue
+    const upload = value as LooseRecord
+    if (typeof upload.targetDir !== 'string') continue
+    if (upload.conflict !== 'backup' && upload.conflict !== 'overwrite') continue
+    const key = upload.targetDir + '|' + upload.conflict
+    if (seen.has(key)) continue
+    seen.add(key)
+    rules.push({
+      id: typeof upload.id === 'string' && upload.id ? upload.id : newId(),
+      targetDir: upload.targetDir,
+      conflict: upload.conflict
+    })
+  }
+  return rules
+}
+
 function migrateEnv(input: unknown): DevEnv | null {
   if (!input || typeof input !== 'object') return null
   const raw = input as LooseRecord
@@ -167,7 +192,7 @@ function migrateEnv(input: unknown): DevEnv | null {
           ...item,
           timeoutSec: typeof item.timeoutSec === 'number' ? item.timeoutSec : 300,
           confirm: typeof item.confirm === 'boolean' ? item.confirm : true,
-          uploads: Array.isArray(item.uploads) ? item.uploads : []
+          uploadRules: migrateUploadRules(item)
         }
       })
     : []

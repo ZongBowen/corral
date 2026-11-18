@@ -27,6 +27,38 @@ export function resolveVariables(template: string, vars: Record<string, string>)
   return { text, missing }
 }
 
+export interface CommandResolution {
+  preview: string
+  command: string
+  missing: string[]
+}
+
+export function resolveCommandVariables(
+  template: string,
+  vars: Record<string, string>,
+  runtimeVars: Record<string, string>
+): CommandResolution {
+  const missing: string[] = []
+  const preview = template.replace(VARIABLE_RE, (match, key: string) => {
+    if (Object.prototype.hasOwnProperty.call(runtimeVars, key)) return runtimeVars[key]
+    if (Object.prototype.hasOwnProperty.call(vars, key)) return vars[key]
+    if (!missing.includes(key)) missing.push(key)
+    return match
+  })
+  const command = template.replace(VARIABLE_RE, (match, key: string) => {
+    if (Object.prototype.hasOwnProperty.call(runtimeVars, key)) return match
+    if (Object.prototype.hasOwnProperty.call(vars, key)) return vars[key]
+    return match
+  })
+  const singleQuoted = findSingleQuotedVars(command).filter(
+    (key) => Object.prototype.hasOwnProperty.call(runtimeVars, key)
+  )
+  if (singleQuoted.length > 0) {
+    throw new AppError('config', '运行时变量不能使用单引号，请改用双引号：' + singleQuoted.join('、'))
+  }
+  return { preview, command, missing }
+}
+
 export function extractVariables(template: string): string[] {
   const result: string[] = []
   const re = new RegExp(VARIABLE_SINGLE_RE.source, 'g')
@@ -50,9 +82,50 @@ export function findUnquotedVars(template: string): string[] {
   return result
 }
 
-export function buildExecScript(command: string): string {
+export function findSingleQuotedVars(template: string): string[] {
+  const result: string[] = []
+  let singleQuoted = false
+  let doubleQuoted = false
+  let index = 0
+  while (index < template.length) {
+    const char = template[index]
+    if (char === '\\' && !singleQuoted) {
+      index += 2
+      continue
+    }
+    if (char === "'" && !doubleQuoted) {
+      singleQuoted = !singleQuoted
+      index += 1
+      continue
+    }
+    if (char === '"' && !singleQuoted) {
+      doubleQuoted = !doubleQuoted
+      index += 1
+      continue
+    }
+    if (singleQuoted && char === '$') {
+      const match = VARIABLE_SINGLE_RE.exec(template.slice(index))
+      if (match?.index === 0) {
+        if (!result.includes(match[1])) result.push(match[1])
+        index += match[0].length
+        continue
+      }
+    }
+    index += 1
+  }
+  return result
+}
+
+export function buildExecScript(command: string, variables: Record<string, string> = {}): string {
+  const assignments = Object.entries(variables).map(([key, value]) => {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      throw new AppError('config', '命令变量名不合法：' + key)
+    }
+    return key + '=' + shellQuote(value)
+  })
+  const variablePrefix = assignments.length > 0 ? assignments.join('; ') + '; ' : ''
   const payload =
-    "printf '\\036CORRAL_PID:%s\\036\\n' \"$$\" >&2; " + command
+    variablePrefix + "printf '\\036CORRAL_PID:%s\\036\\n' \"$$\" >&2; " + command
   return 'bash -lc ' + shellQuote(payload)
 }
 

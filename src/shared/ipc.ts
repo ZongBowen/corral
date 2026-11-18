@@ -11,12 +11,14 @@ import type {
   RunOutputEvent,
   RunPrecheck,
   RunProgress,
+  RunUploadMode,
   RunStatusEvent,
   ServerInput,
   ServerSummary,
   ServerUpdateInput,
   Settings,
-  TestResult
+  TestResult,
+  UploadItem
 } from './types'
 
 export const CH = {
@@ -82,12 +84,16 @@ export interface EnvUpdatePayload {
 export interface RunStartPayload {
   envId: string
   actionId: string
+  uploads: UploadItem[]
+  uploadMode: RunUploadMode
   force?: boolean
 }
 
 export interface RunPrecheckPayload {
   envId: string
   actionId: string
+  uploads: UploadItem[]
+  uploadMode: RunUploadMode
 }
 
 export interface RunReadLogPayload {

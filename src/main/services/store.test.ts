@@ -90,9 +90,70 @@ describe('StoreService', () => {
     const action = store.getState().envs[0].actions[0]
     expect(action.timeoutSec).toBe(300)
     expect(action.confirm).toBe(true)
-    expect(action.uploads).toEqual([])
+    expect(action.uploadRules).toEqual([])
     expect(store.getState().settings.defaultTimeoutSec).toBe(300)
     expect(store.getState().pathChecks).toEqual({})
+  })
+
+  it('migrates legacy local uploads into deduplicated target rules', async () => {
+    const legacy = {
+      schemaVersion: 2,
+      envs: [
+        {
+          id: 'e1',
+          serverId: 's1',
+          name: 'env',
+          paths: [{ key: 'workDir', label: '工作目录', path: '/opt/app', required: true }],
+          actions: [
+            {
+              id: 'a1',
+              name: '更新',
+              command: 'echo hi',
+              timeoutSec: 300,
+              confirm: true,
+              uploads: [
+                {
+                  id: 'u1',
+                  kind: 'file',
+                  localPath: 'D:/one.jar',
+                  targetDir: '${workDir}/lib',
+                  conflict: 'backup'
+                },
+                {
+                  id: 'u2',
+                  kind: 'file',
+                  localPath: 'D:/two.jar',
+                  targetDir: '${workDir}/lib',
+                  conflict: 'backup'
+                },
+                {
+                  id: 'u3',
+                  kind: 'dir',
+                  localPath: 'D:/dist',
+                  targetDir: '${workDir}/static',
+                  conflict: 'overwrite'
+                }
+              ]
+            }
+          ],
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+    await writeFile(join(dir, 'store.json'), JSON.stringify(legacy), 'utf8')
+    const store = new StoreService(dir)
+
+    await store.init()
+
+    const action = store.getState().envs[0].actions[0]
+    expect(action.uploadRules).toEqual([
+      { id: 'u1', targetDir: '${workDir}/lib', conflict: 'backup' },
+      { id: 'u3', targetDir: '${workDir}/static', conflict: 'overwrite' }
+    ])
+    expect(action).not.toHaveProperty('uploads')
+    expect(JSON.stringify(action)).not.toContain('D:/')
+    expect(store.getState().schemaVersion).toBe(3)
   })
 
   it('persists path check snapshots and drops orphaned entries on reload', async () => {

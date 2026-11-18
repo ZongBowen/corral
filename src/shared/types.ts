@@ -23,8 +23,18 @@ export interface PathEntry {
   required?: boolean
 }
 
+export type RunUploadMode = 'upload' | 'skip'
+
+export interface UploadRule {
+  id: string
+  targetDir: string
+  conflict: 'backup' | 'overwrite'
+  variableKey?: string
+}
+
 export interface UploadItem {
   id: string
+  ruleId?: string
   kind: 'file' | 'dir'
   localPath: string
   targetDir: string
@@ -38,7 +48,7 @@ export interface EnvAction {
   timeoutSec: number
   confirm: boolean
   danger?: boolean
-  uploads: UploadItem[]
+  uploadRules: UploadRule[]
 }
 
 export interface DevEnv {
@@ -108,6 +118,7 @@ export interface RunPrecheckItem {
 
 export interface RunPrecheck {
   resolvedCommand: string
+  uploadVariables: Record<string, string>
   items: RunPrecheckItem[]
   totalBytes: number
   fileCount: number
@@ -134,6 +145,9 @@ export interface Run {
   durationMs?: number
   logBytes?: number
   remotePid?: number
+  uploadMode?: RunUploadMode
+  uploadVariables?: Record<string, string>
+  uploads?: UploadItem[]
   uploadStats?: UploadStats
 }
 

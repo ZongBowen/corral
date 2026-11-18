@@ -6,6 +6,7 @@ import {
   findUnquotedVars,
   joinRemote,
   parsePathCheckOutput,
+  resolveCommandVariables,
   resolveVariables,
   shellQuote
 } from './command'
@@ -44,6 +45,29 @@ describe('resolveVariables', () => {
   })
 })
 
+describe('resolveCommandVariables', () => {
+  it('resolves previews while keeping runtime variables for shell injection', () => {
+    const result = resolveCommandVariables(
+      'cd "${workDir}" && unzip "${packagePath}"',
+      { workDir: '/opt/app' },
+      { packagePath: '/opt/app/packages/app 1.zip' }
+    )
+    expect(result).toEqual({
+      preview: 'cd "/opt/app" && unzip "/opt/app/packages/app 1.zip"',
+      command: 'cd "/opt/app" && unzip "${packagePath}"',
+      missing: []
+    })
+  })
+
+  it('rejects runtime variables inside single quotes', () => {
+    expect(() => resolveCommandVariables(
+      "echo '${packageName}'",
+      {},
+      { packageName: 'app.zip' }
+    )).toThrow('运行时变量不能使用单引号')
+  })
+})
+
 describe('findUnquotedVars', () => {
   it('detects unquoted variables only', () => {
     expect(findUnquotedVars('cd "\${workDir}" && cat \${configDir}/a')).toEqual(['configDir'])
@@ -57,6 +81,19 @@ describe('buildExecScript', () => {
     expect(script).toContain('CORRAL_PID')
     expect(script).toContain("echo hi")
     expect(script).toContain("'")
+  })
+
+  it('injects runtime variables using shell quoting', () => {
+    const value = "/opt/app/a '$(touch /tmp/bad).zip"
+    const command = 'unzip "${packagePath}"'
+    const payload =
+      'packagePath=' + shellQuote(value) +
+      "; printf '\\036CORRAL_PID:%s\\036\\n' \"$$\" >&2; " + command
+    expect(buildExecScript(command, { packagePath: value })).toBe('bash -lc ' + shellQuote(payload))
+  })
+
+  it('rejects invalid runtime variable names', () => {
+    expect(() => buildExecScript('echo hi', { 'bad;name': 'value' })).toThrow('命令变量名不合法')
   })
 })
 

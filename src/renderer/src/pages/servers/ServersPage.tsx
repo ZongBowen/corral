@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   App,
   Button,
@@ -39,6 +39,8 @@ export function ServersPage(): React.ReactElement {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<ServerSummary | null>(null)
   const [seed, setSeed] = useState<Partial<ServerInput> | null>(null)
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+  const [tableBodyHeight, setTableBodyHeight] = useState<number | undefined>(undefined)
 
   useEffect(() => {
     void load()
@@ -68,6 +70,35 @@ export function ServersPage(): React.ReactElement {
       )
     })
   }, [servers, keyword, tagFilter, statusFilter, statuses])
+
+  useLayoutEffect(() => {
+    const container = tableContainerRef.current
+    if (!container) return
+
+    const updateTableBodyHeight = (): void => {
+      const header = container.querySelector<HTMLElement>('.ant-table-thead')
+      const pagination = container.querySelector<HTMLElement>('.ant-pagination')
+      let paginationHeight = 0
+      if (pagination && pagination.getClientRects().length > 0) {
+        const { marginTop, marginBottom } = window.getComputedStyle(pagination)
+        paginationHeight = pagination.offsetHeight + parseFloat(marginTop) + parseFloat(marginBottom)
+      }
+      const nextHeight = Math.max(
+        0,
+        Math.floor(container.clientHeight - (header?.offsetHeight ?? 0) - paginationHeight)
+      )
+      setTableBodyHeight((current) => (current === nextHeight ? current : nextHeight))
+    }
+
+    updateTableBodyHeight()
+    const observer = new ResizeObserver(updateTableBodyHeight)
+    observer.observe(container)
+    const header = container.querySelector<HTMLElement>('.ant-table-thead')
+    const pagination = container.querySelector<HTMLElement>('.ant-pagination')
+    if (header) observer.observe(header)
+    if (pagination) observer.observe(pagination)
+    return () => observer.disconnect()
+  }, [filtered.length])
 
   const openCreate = (): void => {
     setEditing(null)
@@ -213,8 +244,8 @@ export function ServersPage(): React.ReactElement {
   ]
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 12 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
           服务器
         </Typography.Title>
@@ -229,7 +260,7 @@ export function ServersPage(): React.ReactElement {
         </Space>
       </div>
 
-      <Space style={{ marginBottom: 8 }} wrap>
+      <Space style={{ flexShrink: 0, marginBottom: 8 }} wrap>
         <Input.Search
           allowClear
           placeholder="搜索名称 / IP / 描述 / 标签"
@@ -259,22 +290,29 @@ export function ServersPage(): React.ReactElement {
         />
       </Space>
 
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={filtered}
-        loading={loading}
-        pagination={{ pageSize: 20, showSizeChanger: false }}
-        locale={{
-          emptyText: (
-            <Empty description="还没有服务器">
-              <Button type="primary" onClick={openCreate}>
-                新增服务器
-              </Button>
-            </Empty>
-          )
-        }}
-      />
+      <div ref={tableContainerRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={filtered}
+          loading={loading}
+          scroll={{ y: tableBodyHeight }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: false,
+            showTotal: (total) => '共 ' + String(total) + ' 台'
+          }}
+          locale={{
+            emptyText: (
+              <Empty description="还没有服务器">
+                <Button type="primary" onClick={openCreate}>
+                  新增服务器
+                </Button>
+              </Empty>
+            )
+          }}
+        />
+      </div>
 
       <ServerDrawer
         open={drawerOpen}

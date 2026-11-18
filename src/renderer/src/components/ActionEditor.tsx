@@ -14,9 +14,9 @@ import {
   theme
 } from 'antd'
 import type { SelectProps } from 'antd'
-import type { DevEnv, EnvAction, UploadItem } from '@shared/types'
+import type { DevEnv, EnvAction, UploadRule } from '@shared/types'
 import { newId } from '@shared/id'
-import { findUnquotedVars, resolveVariables } from '@shared/command'
+import { findSingleQuotedVars, findUnquotedVars, resolveVariables } from '@shared/command'
 import {
   COMMAND_SNIPPETS,
   buildSnippetOptions,
@@ -25,7 +25,7 @@ import {
   type CommandSnippet
 } from '../commandSnippets'
 import { useSettingsStore } from '../stores/settingsStore'
-import { UploadEditor } from './UploadEditor'
+import { UploadRuleEditor } from './UploadRuleEditor'
 
 interface ActionEditorProps {
   open: boolean
@@ -47,7 +47,7 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
   const { message, modal } = App.useApp()
   const { token } = theme.useToken()
   const [form] = Form.useForm<ActionForm>()
-  const [uploads, setUploads] = useState<UploadItem[]>([])
+  const [uploadRules, setUploadRules] = useState<UploadRule[]>([])
   const [saving, setSaving] = useState(false)
   const [variableKey, setVariableKey] = useState<string | undefined>(undefined)
   const [snippetKey, setSnippetKey] = useState<string | undefined>(undefined)
@@ -61,6 +61,27 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
     return result
   }, [env])
 
+  const uploadVariableNames = useMemo(
+    () => uploadRules.flatMap((rule) => {
+      const key = rule.variableKey?.trim()
+      return key ? [key + 'Name', key + 'Path'] : []
+    }),
+    [uploadRules]
+  )
+  const commandVars = useMemo(() => {
+    const result = { ...vars }
+    for (const key of uploadVariableNames) result[key] = '${' + key + '}'
+    return result
+  }, [vars, uploadVariableNames])
+  const variableOptionGroups = useMemo<SelectProps['options']>(() => [
+    { label: '环境变量', options: Object.keys(vars).map((key) => ({ value: key, label: key })) },
+    ...(uploadVariableNames.length > 0
+      ? [{
+          label: '上传变量（执行时生成）',
+          options: uploadVariableNames.map((key) => ({ value: key, label: key }))
+        }]
+      : [])
+  ], [vars, uploadVariableNames])
   const snippetOptionGroups = useMemo<SelectProps['options']>(() => buildSnippetOptions(vars), [vars])
 
   useEffect(() => {
@@ -76,12 +97,13 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
       confirm: action?.confirm ?? true,
       danger: action?.danger ?? false
     })
-    setUploads(action?.uploads ?? [])
+    setUploadRules(action?.uploadRules ?? [])
     setSnippetKey(undefined)
   }, [open, action, form, settings.defaultTimeoutSec])
 
-  const resolved = resolveVariables(command, vars)
+  const resolved = resolveVariables(command, commandVars)
   const unquoted = findUnquotedVars(command)
+  const singleQuotedUploadVars = findSingleQuotedVars(command).filter((key) => uploadVariableNames.includes(key))
 
   const insertVariable = (key: string): void => {
     const current = form.getFieldValue('command') ?? ''
@@ -129,13 +151,18 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
   const submit = async (): Promise<void> => {
     try {
       const values = await form.validateFields()
+      if (singleQuotedUploadVars.length > 0) {
+        void message.error('上传变量不能使用单引号，请改用双引号：' + singleQuotedUploadVars.join('、'))
+        return
+      }
+      const normalizedUploadRules = uploadRules.map((rule) => ({
+        ...rule,
+        variableKey: rule.variableKey?.trim() || undefined
+      }))
       const seen = new Set<string>()
-      for (const upload of uploads) {
-        if (!upload.localPath.trim()) {
-          void message.error('请选择上传文件或目录')
-          return
-        }
-        const target = resolveVariables(upload.targetDir, vars)
+      const variableNames = new Set(Object.keys(vars))
+      for (const rule of normalizedUploadRules) {
+        const target = resolveVariables(rule.targetDir, vars)
         if (target.missing.length > 0) {
           void message.error('上传目标引用了未定义的变量：' + target.missing.join('、'))
           return
@@ -144,13 +171,26 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
           void message.error('上传目标必须是远程绝对路径且不能是根目录')
           return
         }
-        const base = upload.kind === 'file' ? upload.localPath.split(/[\\/]/).filter(Boolean).pop() ?? '' : ''
-        const key = target.text + '|' + base
+        const key = target.text + '|' + rule.conflict
         if (seen.has(key)) {
           void message.error('上传目标重复：' + target.text)
           return
         }
         seen.add(key)
+        if (rule.variableKey) {
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(rule.variableKey)) {
+            void message.error('命令变量名必须以字母或下划线开头，仅含字母、数字、下划线')
+            return
+          }
+          for (const suffix of ['Name', 'Path']) {
+            const name = rule.variableKey + suffix
+            if (variableNames.has(name)) {
+              void message.error('上传变量与环境变量或其他上传变量重复：' + name)
+              return
+            }
+            variableNames.add(name)
+          }
+        }
       }
       setSaving(true)
       await onSave({
@@ -160,7 +200,7 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
         timeoutSec: values.timeoutSec ?? 0,
         confirm: values.confirm,
         danger: values.danger,
-        uploads
+        uploadRules: normalizedUploadRules
       })
       void message.success('操作已保存')
       onClose()
@@ -254,7 +294,7 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
             placeholder="插入变量"
             style={{ width: '100%' }}
             value={variableKey}
-            options={Object.keys(vars).map((key) => ({ value: key, label: key }))}
+            options={variableOptionGroups}
             onChange={(key) => {
               insertVariable(key)
               setVariableKey(undefined)
@@ -305,6 +345,14 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
             title={'引用了未定义的变量：' + resolved.missing.join('、')}
           />
         ) : null}
+        {singleQuotedUploadVars.length > 0 ? (
+          <Alert
+            type="error"
+            showIcon
+            style={{ marginBottom: 12 }}
+            title={'上传变量在 shell 中需使用双引号，单引号不会展开：' + singleQuotedUploadVars.join('、')}
+          />
+        ) : null}
         {unquoted.length > 0 ? (
           <Alert
             type="warning"
@@ -329,11 +377,11 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
         </pre>
 
         <Typography.Title level={5} style={{ marginTop: 0 }}>
-          预上传（可选）
+          执行前上传（可选）
         </Typography.Title>
-        <UploadEditor
-          value={uploads}
-          onChange={setUploads}
+        <UploadRuleEditor
+          value={uploadRules}
+          onChange={setUploadRules}
           defaultConflict={settings.defaultConflict}
           defaultTarget={'\${workDir}'}
         />

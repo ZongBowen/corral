@@ -11,7 +11,7 @@ export interface EnvTemplate {
 function action(
   name: string,
   command: string,
-  options: { danger?: boolean; uploads?: EnvAction['uploads'] } = {}
+  options: { danger?: boolean; uploadRules?: EnvAction['uploadRules'] } = {}
 ): EnvAction {
   return {
     id: newId(),
@@ -20,7 +20,7 @@ function action(
     timeoutSec: 300,
     confirm: true,
     danger: options.danger,
-    uploads: options.uploads ?? []
+    uploadRules: options.uploadRules ?? []
   }
 }
 
@@ -57,15 +57,13 @@ export const ENV_TEMPLATES: EnvTemplate[] = [
   },
   {
     key: 'upload',
-    label: '本地构建产物 + 预上传',
+    label: '本地构建产物 + 执行前上传',
     description: '上传 jar 后执行重启脚本',
     build: () => [
       action('更新', 'cd "\${workDir}" && ./restart.sh', {
-        uploads: [
+        uploadRules: [
           {
             id: newId(),
-            kind: 'file',
-            localPath: 'D:/build/dist/app.jar',
             targetDir: '\${workDir}/lib',
             conflict: 'backup'
           }

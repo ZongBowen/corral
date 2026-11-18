@@ -39,8 +39,25 @@ export const pathEntrySchema = z.object({
   required: z.boolean().optional()
 })
 
+export const uploadRuleSchema = z.object({
+  id: idSchema,
+  targetDir: z
+    .string()
+    .trim()
+    .min(1, '目标目录不能为空')
+    .max(4096)
+    .refine((value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'), '目标目录包含非法字符'),
+  conflict: z.enum(['backup', 'overwrite']),
+  variableKey: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, '变量名必须以字母或下划线开头，仅含字母、数字、下划线')
+    .optional()
+})
+
 export const uploadItemSchema = z.object({
   id: idSchema,
+  ruleId: idSchema.optional(),
   kind: z.enum(['file', 'dir']),
   localPath: z.string().trim().min(1, '本地路径不能为空').max(4096),
   targetDir: z
@@ -59,7 +76,7 @@ export const envActionSchema = z.object({
   timeoutSec: z.number().int().min(0).max(86400),
   confirm: z.boolean(),
   danger: z.boolean().optional(),
-  uploads: z.array(uploadItemSchema).max(50, '单个操作最多 50 个上传项')
+  uploadRules: z.array(uploadRuleSchema).max(50, '单个操作最多 50 个上传目标')
 })
 
 export const devEnvInputSchema = z
@@ -91,6 +108,23 @@ export const devEnvInputSchema = z
         ctx.addIssue({ code: 'custom', message: '操作 ID 重复', path: ['actions', index, 'id'] })
       }
       actionIds.add(action.id)
+
+      const variableNames = new Set(['envName', ...env.paths.map((entry) => entry.key)])
+      action.uploadRules.forEach((rule, ruleIndex) => {
+        if (!rule.variableKey) return
+        for (const suffix of ['Name', 'Path']) {
+          const name = rule.variableKey + suffix
+          if (variableNames.has(name)) {
+            ctx.addIssue({
+              code: 'custom',
+              message: '上传变量与环境变量或其他上传变量重复：' + name,
+              path: ['actions', index, 'uploadRules', ruleIndex, 'variableKey']
+            })
+          } else {
+            variableNames.add(name)
+          }
+        }
+      })
     })
   })
 
@@ -186,6 +220,9 @@ export const runSchema = z.object({
   durationMs: z.number().optional(),
   logBytes: z.number().optional(),
   remotePid: z.number().optional(),
+  uploadMode: z.enum(['upload', 'skip']).optional(),
+  uploadVariables: z.record(idSchema, z.string()).optional(),
+  uploads: z.array(uploadItemSchema).max(50).optional(),
   uploadStats: uploadStatsSchema.optional()
 })
 
@@ -241,6 +278,8 @@ export const envValidatePayloadSchema = z.object({
 export const runStartSchema = z.object({
   envId: idSchema,
   actionId: idSchema,
+  uploads: z.array(uploadItemSchema).max(50, '单次执行最多 50 个上传项').default([]),
+  uploadMode: z.enum(['upload', 'skip']).default('upload'),
   force: z.boolean().optional()
 })
 
@@ -250,7 +289,9 @@ export const runCancelSchema = z.object({
 
 export const runPrecheckSchema = z.object({
   envId: idSchema,
-  actionId: idSchema
+  actionId: idSchema,
+  uploads: z.array(uploadItemSchema).max(50, '单次执行最多 50 个上传项').default([]),
+  uploadMode: z.enum(['upload', 'skip']).default('upload')
 })
 
 export const runReadLogSchema = z.object({

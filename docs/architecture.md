@@ -11,9 +11,9 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
 
 - 服务器 CRUD、密码加密存储、SSH 连接测试、主机指纹 TOFU 校验
 - 开发环境与具名远程目录配置、目录存在性/可写性校验
-- 每个环境维护多条操作（命令、超时、二次确认、危险标记、预上传）
+- 每个环境维护多条操作（命令、超时、二次确认、危险标记、上传目标规则）
 - 单环境执行：SSH exec、stdout/stderr 流式日志、超时与取消
-- 操作级 SFTP 预上传：文件/目录、进度、覆盖前备份、失败清理
+- 操作级 SFTP 预上传：执行时选择本地文件/目录或显式跳过，支持进度、覆盖前备份、失败清理
 - 执行历史、日志分页回看、导出、保留策略
 - 全局设置、明暗主题、数据目录与配置导出
 
@@ -169,7 +169,7 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
 - 写策略：writeFileAtomic 先写临时文件、fsync，再 rename 覆盖。
 - 写节流：mutate() 后 300ms 防抖；flush() 立即落盘，退出前调用。
 - 损坏恢复：JSON 读取失败时重命名为 store.corrupt-<timestamp>.json，以空库启动并通知渲染层。
-- 迁移：补齐旧执行缺少的 uploads、timeoutSec、confirm 等字段。
+- 迁移：补齐旧操作字段；将旧本地上传项按目标目录和冲突策略去重为上传规则，移除操作中的本地路径。
 - exportConfig() 导出不含密码的配置快照。
 
 ### 5.2 VaultService（services/vault.ts）
@@ -226,8 +226,8 @@ upload.ts 负责实际传输：
 ### 5.7 RunManager（services/runner.ts）
 
 - 全局并发上限 4；同一环境同时只允许一个执行（envLocks）。
-- precheck()：解析命令变量、展开上传目标、统计本地文件；不建立 SSH。
-- start()：创建 Run 记录、入队、立即返回 runId。
+- precheck()：接收本次上传模式和上传清单，展开上传目标并生成 Name/Path 上传变量，分别生成实际值预览与保留运行时变量的执行命令；跳过模式不检查本地来源，不建立 SSH。
+- start()：重新生成本次上传计划并保存上传模式、上传项和变量快照，创建 Run 记录、入队、立即返回 runId；上传模式下来源缺失时不创建运行记录，跳过模式生成空计划且禁止引用上传变量。
 - 状态机只允许预定义迁移；终态后忽略迟到事件。
 - 执行过程：连接 → 目录校验（可跳过）→ 预上传 → bash -lc 执行。
 - 命令前置 PID 标记：printf '\036CORRAL_PID:%s\036\n' "$$" >&2，主进程解析并剥离。
@@ -257,10 +257,10 @@ upload.ts 负责实际传输：
 
 | 文件 | 职责 |
 | --- | --- |
-| shared/types.ts | Server、DevEnv、EnvAction、UploadItem、Run、Settings、事件载荷、默认设置 |
+| shared/types.ts | Server、DevEnv、EnvAction、UploadRule、UploadItem、Run、Settings、事件载荷、默认设置 |
 | shared/schema.ts | 服务器、环境、目录、操作、上传、设置、run 过滤等 Zod Schema |
 | shared/ipc.ts | CH 通道常量、EV 事件常量、CorralApi 类型 |
-| shared/command.ts | shellQuote、resolveVariables、buildExecScript、buildPathCheckScript、joinRemote、assertSafeRemotePath、findUnquotedVars |
+| shared/command.ts | shellQuote、resolveVariables、resolveCommandVariables、buildExecScript（上传变量安全注入）、路径与校验脚本工具 |
 | shared/pathCheck.ts | 环境与服务器目录校验目标的变化判断 |
 | shared/errors.ts | AppError、classifySshError、describeExitCode、错误裁剪 |
 | shared/id.ts | nanoid 封装 |
@@ -330,12 +330,12 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 
 一次执行的完整链路：
 
-1. 渲染层点击操作，先调用 run:precheck 获取展开后的命令、上传清单、缺失文件和警告。
-2. 需要确认时展示 ConfirmRunModal，调用 run:start。
+1. 渲染层点击操作；有上传规则时先选择本次本地文件/目录，再用实际上传项调用 run:precheck 获取展开后的命令、上传清单、缺失文件和警告；无上传规则时直接预检命令。
+2. 有上传规则时始终展示 ConfirmRunModal 进行来源选择、预检和最终确认；其他操作按 confirm 或警告决定是否确认，run:start 接收同一份上传清单。
 3. RunManager 创建 Run、加环境锁、入队并立即返回 runId。
 4. 主进程取凭据、建立 SSH、处理主机指纹。
 5. 如开启目录校验，执行 test -d/-w 脚本，解析 DIR_OK/DIR_MISSING/WRITE_OK/READONLY。
-6. 如有预上传，先完成全部 SFTP 上传与替换，再进入命令执行。
+6. 上传模式为 upload 且存在上传项时，先完成全部 SFTP 上传与替换；skip 模式记录系统日志并跳过 SFTP，再进入命令执行。
 7. 通过 bash -lc 执行命令，按 60ms/64KB 聚合输出，分别写入日志文件并推送事件。
 8. 命令结束、超时、取消或断连后进入终态，写回 Run 并发出 run:done。
 9. 渲染层更新日志面板、按钮状态、历史和环境的最近执行信息。
@@ -357,9 +357,10 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 - DevEnv：serverId、name、paths、actions、description、时间戳。
 - PathEntry：key、label、path、required；workDir 必填。
 - PathCheck：目录状态、checkedAt 与错误信息；按 envId 保存手动校验快照，仅用于历史状态展示。
-- EnvAction：name、command、timeoutSec、confirm、danger、uploads。
-- UploadItem：kind（file/dir）、localPath、targetDir、conflict（backup/overwrite）。
-- Run：环境/服务器/操作名称快照、原始命令、解析后命令、状态、退出码、错误分类、耗时、日志大小、上传统计、远端 PID。
+- EnvAction：name、command、timeoutSec、confirm、danger、uploadRules。
+- UploadRule：id、targetDir、conflict、variableKey；操作中只保存稳定的上传目标规则。设置 variableKey 时仅允许单个文件，并生成对应的 Name/Path 变量。
+- UploadItem：ruleId、kind（file/dir）、localPath、targetDir、conflict（backup/overwrite）；仅作为一次执行的实际上传参数。
+- Run：环境/服务器/操作名称快照、原始命令、实际值预览命令、上传模式、上传项与变量快照、状态、退出码、错误分类、耗时、日志大小、上传统计、远端 PID。
 
 设置默认值：默认超时 300s、执行前校验目录开启、上传冲突默认备份、上传空闲超时 60s、日志保留 200 条 / 30 天、输出 UTF-8、旧 SSH 算法关闭。
 
@@ -398,9 +399,10 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 | RunConsole | 环境详情中的执行面板与停止确认 |
 | StatusBadge | RunStatus 与服务器在线状态统一 Badge |
 | PathEditor | 具名目录增删、key/label/path、必填开关 |
-| ActionEditor | 操作名称、命令、超时、确认、危险标记、变量插入、预览、上传项 |
-| UploadEditor | 文件/目录选择、目标变量、冲突策略 |
-| ConfirmRunModal | 上传清单、总大小、解析后命令、缺失文件警告 |
+| ActionEditor | 操作名称、命令、超时、确认、危险标记、变量插入、预览、上传目标规则 |
+| UploadRuleEditor | 操作编辑器中的目标目录与冲突策略配置 |
+| UploadEditor | 执行弹窗中按目标规则选择本次本地文件/目录 |
+| ConfirmRunModal | 本次上传/跳过模式、上传来源选择、预检、上传清单、变量实际值、总大小、解析后命令、缺失文件警告 |
 | HostKeyModal | 首次信任/指纹变化、30 秒倒计时 |
 
 ### 10.4 Zustand stores
@@ -465,7 +467,7 @@ electron-builder.yml：
 ## 12. 测试架构
 
 - vitest.config.mts：Node 环境，electron 别名到 tests/mocks/electron.ts，只收集 src/**/*.test.ts。
-- 当前覆盖 13 个测试文件、74 个用例：
+- 当前覆盖 13 个测试文件、87 个用例：
   - shared/command：shell 转义、变量解析、路径拼接、校验脚本解析；
   - shared/pathCheck、envsStore：校验目标变化、快照保留与失效；
   - store：默认值、原子写、损坏备份、旧数据迁移；
@@ -499,5 +501,5 @@ electron-builder.yml：
 - 不使用 PTY/xterm，只做预设命令执行与日志查看。
 - 取消是尽力而为，脚本自行 nohup/setsid 启动的后台进程不会被连带终止。
 - 密码不可导出；safeStorage 绑定 Windows 用户，换机/换用户后需要重新录入。
-- 预上传配置只保存本地路径，不复制文件到应用数据目录。
+- 操作只保存上传目标规则；本地路径仅作为执行参数和历史上传快照保存，不复制文件到应用数据目录。
 - 打包未配置应用图标和代码签名，安装包为默认 Electron 图标。
