@@ -55,6 +55,19 @@ export const uploadRuleSchema = z.object({
     .optional()
 })
 
+export const manualUploadFileSchema = z.object({
+  ruleId: idSchema,
+  fileName: z
+    .string()
+    .trim()
+    .min(1, '已上传文件名不能为空')
+    .max(255, '文件名最长 255 个字符')
+    .refine(
+      (value) => value !== '.' && value !== '..' && !/[/\\\0\n\r]/.test(value),
+      '文件名不能包含路径、控制字符或路径穿越'
+    )
+})
+
 export const uploadItemSchema = z.object({
   id: idSchema,
   ruleId: idSchema.optional(),
@@ -221,6 +234,7 @@ export const runSchema = z.object({
   logBytes: z.number().optional(),
   remotePid: z.number().optional(),
   uploadMode: z.enum(['upload', 'skip']).optional(),
+  manualUploadFiles: z.array(manualUploadFileSchema).max(50).optional(),
   uploadVariables: z.record(idSchema, z.string()).optional(),
   uploads: z.array(uploadItemSchema).max(50).optional(),
   uploadStats: uploadStatsSchema.optional()
@@ -280,6 +294,7 @@ export const runStartSchema = z.object({
   actionId: idSchema,
   uploads: z.array(uploadItemSchema).max(50, '单次执行最多 50 个上传项').default([]),
   uploadMode: z.enum(['upload', 'skip']).default('upload'),
+  manualUploadFiles: z.array(manualUploadFileSchema).max(50).default([]),
   force: z.boolean().optional()
 })
 
@@ -291,7 +306,8 @@ export const runPrecheckSchema = z.object({
   envId: idSchema,
   actionId: idSchema,
   uploads: z.array(uploadItemSchema).max(50, '单次执行最多 50 个上传项').default([]),
-  uploadMode: z.enum(['upload', 'skip']).default('upload')
+  uploadMode: z.enum(['upload', 'skip']).default('upload'),
+  manualUploadFiles: z.array(manualUploadFileSchema).max(50).default([])
 })
 
 export const runReadLogSchema = z.object({

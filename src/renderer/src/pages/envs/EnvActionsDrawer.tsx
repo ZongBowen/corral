@@ -99,7 +99,10 @@ export function EnvActionsDrawer({ open, env, onClose, onSave }: EnvActionsDrawe
             style={{
               border: '1px solid ' + token.colorBorderSecondary,
               borderRadius: 8,
-              padding: 12
+              padding: 12,
+              boxSizing: 'border-box',
+              height: 100,
+              overflow: 'hidden'
             }}
           >
             <Space style={{ width: '100%' }}>
@@ -147,9 +150,20 @@ export function EnvActionsDrawer({ open, env, onClose, onSave }: EnvActionsDrawe
                 onClick={() => remove(action)}
               />
             </Space>
-            <pre className="corral-code" style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', opacity: 0.8 }}>
+            <Typography.Paragraph
+              className="corral-code"
+              ellipsis={{ rows: 2 }}
+              style={{
+                height: 40,
+                lineHeight: '20px',
+                margin: '8px 0 0',
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
+                opacity: 0.8
+              }}
+            >
               {action.command}
-            </pre>
+            </Typography.Paragraph>
           </div>
         ))}
         <Button

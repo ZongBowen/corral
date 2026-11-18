@@ -5,6 +5,7 @@ import type {
   DevEnvInput,
   HostKeyChallenge,
   IpcResult,
+  ManualUploadFile,
   LogChunk,
   Run,
   RunFilter,
@@ -86,6 +87,7 @@ export interface RunStartPayload {
   actionId: string
   uploads: UploadItem[]
   uploadMode: RunUploadMode
+  manualUploadFiles: ManualUploadFile[]
   force?: boolean
 }
 
@@ -94,6 +96,7 @@ export interface RunPrecheckPayload {
   actionId: string
   uploads: UploadItem[]
   uploadMode: RunUploadMode
+  manualUploadFiles: ManualUploadFile[]
 }
 
 export interface RunReadLogPayload {

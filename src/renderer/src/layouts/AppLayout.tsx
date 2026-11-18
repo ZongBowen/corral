@@ -43,7 +43,7 @@ export function AppLayout(): React.ReactElement {
         <Layout.Content
           style={{
             padding: 12,
-            overflow: page === 'servers' || page === 'envs' ? 'hidden' : 'auto',
+            overflow: page === 'servers' || page === 'envs' || page === 'runs' ? 'hidden' : 'auto',
             background: token.colorBgLayout
           }}
         >

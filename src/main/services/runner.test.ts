@@ -34,7 +34,7 @@ class FakeSsh {
     return new FakeClient() as unknown as Client
   })
 
-  execStream = vi.fn(async () => {
+  execStream = vi.fn(async (_client: Client, _command: string) => {
     const stream = new FakeStream()
     setTimeout(() => {
       stream.emit('data', Buffer.from('hello\n'))
@@ -101,6 +101,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  await store.close()
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
@@ -235,6 +236,60 @@ describe('RunManager', () => {
     expect(chunk.content).toContain('本次跳过执行前上传')
   })
 
+  it('builds command variables from a manual file name without uploading', async () => {
+    env.actions[0].command = 'unzip "${packagePath}"'
+    env.actions[0].uploadRules = [
+      { id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup', variableKey: 'package' }
+    ]
+    const manualUploadFiles = [{ ruleId: 'r1', fileName: 'app 2026.zip' }]
+    const ssh = new FakeSsh('success')
+    const manager = createManager(ssh)
+
+    const precheck = await manager.precheck('e1', 'a1', [], 'skip', manualUploadFiles)
+    expect(precheck.uploadVariables).toEqual({
+      packageName: 'app 2026.zip',
+      packagePath: '/opt/app/lib/app 2026.zip'
+    })
+    expect(precheck.resolvedCommand).toBe('unzip "/opt/app/lib/app 2026.zip"')
+
+    const { runId } = await manager.start('e1', 'a1', [], false, 'skip', manualUploadFiles)
+    await waitStatus(runId, 'success')
+    await waitDone(manager, runId)
+
+    const run = store.getState().runs.find((item) => item.id === runId)!
+    expect(run.manualUploadFiles).toEqual(manualUploadFiles)
+    expect(run.uploadVariables).toEqual(precheck.uploadVariables)
+    expect(ssh.openSftp).not.toHaveBeenCalled()
+    const script = ssh.execStream.mock.calls[0][1]
+    expect(script).toContain('packagePath=')
+    expect(script).toContain('${packagePath}')
+    const chunk = await logs.readChunk(runId, 0, 4096)
+    expect(chunk.content).toContain('使用手工指定的远程文件名')
+  })
+
+  it('validates manual file input and mode consistency', async () => {
+    env.actions[0].uploadRules = [
+      { id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup', variableKey: 'package' }
+    ]
+    const manager = createManager(new FakeSsh('success'))
+
+    await expect(
+      manager.precheck('e1', 'a1', [], 'skip', [{ ruleId: 'r1', fileName: '../app.zip' }])
+    ).rejects.toThrow('手工文件名')
+    await expect(
+      manager.precheck('e1', 'a1', [], 'skip', [
+        { ruleId: 'r1', fileName: 'a.zip' },
+        { ruleId: 'r1', fileName: 'b.zip' }
+      ])
+    ).rejects.toThrow('不能重复')
+    await expect(
+      manager.precheck('e1', 'a1', [], 'skip', [{ ruleId: 'unknown', fileName: 'a.zip' }])
+    ).rejects.toThrow('未关联有效')
+    await expect(
+      manager.precheck('e1', 'a1', [], 'upload', [{ ruleId: 'r1', fileName: 'a.zip' }])
+    ).rejects.toThrow('上传模式不能包含手工文件名')
+  })
+
   it('rejects upload selections in skip mode', async () => {
     env.actions[0].uploadRules = [{ id: 'r1', targetDir: '${workDir}/lib', conflict: 'backup' }]
     const upload: UploadItem = {
@@ -334,7 +389,8 @@ describe('RunManager', () => {
   })
 
   it('classifies connection failures', async () => {
-    const manager = createManager(new FakeSsh('refused'))
+    const ssh = new FakeSsh('refused')
+    const manager = createManager(ssh)
     const { runId } = await manager.start('e1', 'a1')
     await waitStatus(runId, 'failed')
     await waitDone(manager, runId)
@@ -343,13 +399,18 @@ describe('RunManager', () => {
 
     const chunk = await logs.readChunk(runId, 0, 4096)
     expect(chunk.content).toContain('执行失败')
-    await expect(manager.start('e1', 'a1')).resolves.toBeTruthy()
+    ssh.mode = 'success'
+    const retry = await manager.start('e1', 'a1')
+    await waitStatus(retry.runId, 'success')
+    await waitDone(manager, retry.runId)
   })
 
   it('rejects a second run on the same environment', async () => {
     const manager = createManager(new FakeSsh('success'))
-    await manager.start('e1', 'a1')
+    const { runId } = await manager.start('e1', 'a1')
     await expect(manager.start('e1', 'a1')).rejects.toThrow('该环境已有执行中的任务')
+    await waitStatus(runId, 'success')
+    await waitDone(manager, runId)
   })
 })
 

@@ -32,6 +32,11 @@ export interface UploadRule {
   variableKey?: string
 }
 
+export interface ManualUploadFile {
+  ruleId: string
+  fileName: string
+}
+
 export interface UploadItem {
   id: string
   ruleId?: string
@@ -146,6 +151,7 @@ export interface Run {
   logBytes?: number
   remotePid?: number
   uploadMode?: RunUploadMode
+  manualUploadFiles?: ManualUploadFile[]
   uploadVariables?: Record<string, string>
   uploads?: UploadItem[]
   uploadStats?: UploadStats

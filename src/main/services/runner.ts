@@ -4,17 +4,20 @@ import { AppError, describeExitCode } from '@shared/errors'
 import { EV } from '@shared/ipc'
 import {
   buildExecScript,
+  assertTargetDir,
   buildPathCheckScript,
   extractVariables,
   joinRemote,
   parsePathCheckOutput,
   resolveCommandVariables,
+  resolveVariables,
   shellQuote
 } from '@shared/command'
 import { newId } from '@shared/id'
 import type {
   DevEnv,
   EnvAction,
+  ManualUploadFile,
   Run,
   RunFilter,
   RunPrecheck,
@@ -104,14 +107,17 @@ export class RunManager {
     envId: string,
     actionId: string,
     uploads: UploadItem[] = [],
-    uploadMode: RunUploadMode = 'upload'
+    uploadMode: RunUploadMode = 'upload',
+    manualUploadFiles: ManualUploadFile[] = []
   ): Promise<RunPrecheck> {
     const env = this.findEnv(envId)
     const action = this.findAction(env, actionId)
     const vars = buildVars(env)
-    this.validateUploads(action, uploads, uploadMode)
+    this.validateUploads(action, uploads, uploadMode, manualUploadFiles)
     const plan = await buildUploadPlan(uploads, vars)
-    const uploadVariables = uploadMode === 'skip' ? {} : buildUploadVariables(action, plan)
+    const uploadVariables = uploadMode === 'skip'
+      ? buildManualUploadVariables(action, vars, manualUploadFiles)
+      : buildUploadVariables(action, plan)
     const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
     if (resolved.missing.length > 0) {
       throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
@@ -140,7 +146,8 @@ export class RunManager {
     actionId: string,
     uploads: UploadItem[] = [],
     force = false,
-    uploadMode: RunUploadMode = 'upload'
+    uploadMode: RunUploadMode = 'upload',
+    manualUploadFiles: ManualUploadFile[] = []
   ): Promise<{ runId: string }> {
     if (this.envLocks.has(envId)) {
       throw new AppError('config', '该环境已有执行中的任务')
@@ -149,13 +156,16 @@ export class RunManager {
     const action = this.findAction(env, actionId)
     const server = this.findServer(env.serverId)
     const vars = buildVars(env)
-    this.validateUploads(action, uploads, uploadMode)
+    this.validateUploads(action, uploads, uploadMode, manualUploadFiles)
     const uploadSnapshot = uploads.map((item) => ({ ...item }))
+    const manualUploadSnapshot = manualUploadFiles.map((item) => ({ ...item }))
     const uploadPlan = await buildUploadPlan(uploadSnapshot, vars)
     if (uploadPlan.missing.length > 0) {
       throw new AppError('upload', '本地文件不存在：' + uploadPlan.missing.join('、'))
     }
-    const uploadVariables = uploadMode === 'skip' ? {} : buildUploadVariables(action, uploadPlan)
+    const uploadVariables = uploadMode === 'skip'
+      ? buildManualUploadVariables(action, vars, manualUploadFiles)
+      : buildUploadVariables(action, uploadPlan)
     const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
     if (resolved.missing.length > 0) {
       throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
@@ -172,6 +182,7 @@ export class RunManager {
       command: action.command,
       resolvedCommand: resolved.preview,
       uploadMode,
+      manualUploadFiles: manualUploadSnapshot,
       uploadVariables,
       uploads: uploadSnapshot,
       status: 'queued',
@@ -333,7 +344,12 @@ export class RunManager {
         this.setStatus(ctx, 'uploading')
         await this.upload(ctx, settings)
       } else if (ctx.run.uploadMode === 'skip' && ctx.action.uploadRules.length > 0) {
-        this.system(ctx, '本次跳过执行前上传')
+        this.system(
+          ctx,
+          ctx.run.manualUploadFiles?.length
+            ? '本次跳过执行前上传，使用手工指定的远程文件名'
+            : '本次跳过执行前上传'
+        )
       }
       if (ctx.abort.signal.aborted) throw new AppError('canceled', '已取消')
 
@@ -617,17 +633,43 @@ export class RunManager {
     }
   }
 
-  private validateUploads(action: EnvAction, uploads: UploadItem[], uploadMode: RunUploadMode): void {
+  private validateUploads(
+    action: EnvAction,
+    uploads: UploadItem[],
+    uploadMode: RunUploadMode,
+    manualUploadFiles: ManualUploadFile[]
+  ): void {
     if (uploadMode === 'skip') {
       if (action.uploadRules.length === 0) throw new AppError('config', '该操作未配置执行前上传')
-      const commandVariables = extractVariables(action.command)
-      const unavailable = uploadVariableKeys(action).filter((key) => commandVariables.includes(key))
-      if (unavailable.length > 0) {
-        const names = unavailable.map((key) => '${' + key + '}').join('、')
-        throw new AppError('config', '跳过上传无法确定 ' + names + '，请使用上传模式或移除变量')
-      }
       if (uploads.length > 0) throw new AppError('config', '跳过上传时不能包含上传项')
+
+      const manualRuleIds = new Set<string>()
+      for (const manual of manualUploadFiles) {
+        const rule = action.uploadRules.find((item) => item.id === manual.ruleId)
+        if (!rule?.variableKey) throw new AppError('config', '手工文件项未关联有效的命令变量规则')
+        if (manualRuleIds.has(rule.id)) throw new AppError('config', '同一上传规则不能重复录入文件名')
+        assertManualUploadFileName(manual.fileName)
+        manualRuleIds.add(rule.id)
+      }
+
+      const commandVariables = extractVariables(action.command)
+      const missing = action.uploadRules.filter((rule) => {
+        if (!rule.variableKey || manualRuleIds.has(rule.id)) return false
+        return commandVariables.includes(rule.variableKey + 'Name') ||
+          commandVariables.includes(rule.variableKey + 'Path')
+      })
+      if (missing.length > 0) {
+        const names = missing
+          .flatMap((rule) => [rule.variableKey + 'Name', rule.variableKey + 'Path'])
+          .map((key) => '${' + key + '}')
+          .join('、')
+        throw new AppError('config', '跳过上传无法确定 ' + names + '，请录入已上传文件名')
+      }
       return
+    }
+
+    if (manualUploadFiles.length > 0) {
+      throw new AppError('config', '上传模式不能包含手工文件名')
     }
 
     const rules = new Map(action.uploadRules.map((rule) => [rule.id, rule]))
@@ -682,10 +724,37 @@ export class RunManager {
   }
 }
 
-function uploadVariableKeys(action: EnvAction): string[] {
-  return action.uploadRules.flatMap((rule) =>
-    rule.variableKey ? [rule.variableKey + 'Name', rule.variableKey + 'Path'] : []
-  )
+function assertManualUploadFileName(fileName: string): void {
+  if (
+    !fileName ||
+    fileName.length > 255 ||
+    fileName === '.' ||
+    fileName === '..' ||
+    /[/\\\0\n\r]/.test(fileName)
+  ) {
+    throw new AppError('config', '手工文件名不能包含路径、控制字符或路径穿越')
+  }
+}
+
+function buildManualUploadVariables(
+  action: EnvAction,
+  vars: Record<string, string>,
+  manualUploadFiles: ManualUploadFile[]
+): Record<string, string> {
+  const variables: Record<string, string> = {}
+  for (const manual of manualUploadFiles) {
+    const rule = action.uploadRules.find((item) => item.id === manual.ruleId)
+    if (!rule?.variableKey) throw new AppError('config', '手工文件项未关联有效的命令变量规则')
+    assertManualUploadFileName(manual.fileName)
+    const target = resolveVariables(rule.targetDir, vars)
+    if (target.missing.length > 0) {
+      throw new AppError('config', '上传目标目录引用了未定义的变量：' + target.missing.join('、'))
+    }
+    assertTargetDir(target.text)
+    variables[rule.variableKey + 'Name'] = manual.fileName
+    variables[rule.variableKey + 'Path'] = joinRemote(target.text, manual.fileName)
+  }
+  return variables
 }
 
 function buildUploadVariables(action: EnvAction, plan: UploadPlan): Record<string, string> {

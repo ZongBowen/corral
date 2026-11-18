@@ -4,6 +4,7 @@ import { DeleteOutlined, EditOutlined, SafetyCertificateOutlined, SettingOutline
 import type {
   DevEnv,
   EnvAction,
+  ManualUploadFile,
   PathCheck,
   Run,
   RunPrecheck,
@@ -47,6 +48,7 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
     precheck: RunPrecheck | null
     uploads: UploadItem[]
     uploadMode: RunUploadMode
+    manualUploadFiles: ManualUploadFile[]
   } | null>(null)
   const [starting, setStarting] = useState(false)
   const [prechecking, setPrechecking] = useState(false)
@@ -126,19 +128,33 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
   const retryRun = async (failedRun: Run): Promise<void> => {
     const action = env.actions.find((item) => item.id === failedRun.actionId)
     if (!action) return
-    await beginRun(action, failedRun.uploads ?? [], true, failedRun.uploadMode ?? 'upload')
+    await beginRun(
+      action,
+      failedRun.uploads ?? [],
+      true,
+      failedRun.uploadMode ?? 'upload',
+      failedRun.manualUploadFiles ?? []
+    )
   }
 
   const beginRun = async (
     action: EnvAction,
     uploads: UploadItem[],
     force = false,
-    uploadMode: RunUploadMode = 'upload'
+    uploadMode: RunUploadMode = 'upload',
+    manualUploadFiles: ManualUploadFile[] = []
   ): Promise<void> => {
     try {
       setStarting(true)
       const result = await unwrap(
-        window.api.run.start({ envId: env.id, actionId: action.id, uploads, uploadMode, force })
+        window.api.run.start({
+          envId: env.id,
+          actionId: action.id,
+          uploads,
+          uploadMode,
+          manualUploadFiles,
+          force
+        })
       )
       useRunStreamStore.getState().begin(result.runId, env.id, action.id)
       setPending(null)
@@ -152,15 +168,21 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
 
   const requestRun = async (action: EnvAction): Promise<void> => {
     if (action.uploadRules.length > 0) {
-      setPending({ action, precheck: null, uploads: [], uploadMode: 'upload' })
+      setPending({ action, precheck: null, uploads: [], uploadMode: 'upload', manualUploadFiles: [] })
       return
     }
     try {
       const precheck = await unwrap(
-        window.api.run.precheck({ envId: env.id, actionId: action.id, uploads: [], uploadMode: 'upload' })
+        window.api.run.precheck({
+          envId: env.id,
+          actionId: action.id,
+          uploads: [],
+          uploadMode: 'upload',
+          manualUploadFiles: []
+        })
       )
       if (action.confirm || precheck.missing.length > 0 || precheck.warnings.length > 0) {
-        setPending({ action, precheck, uploads: [], uploadMode: 'upload' })
+        setPending({ action, precheck, uploads: [], uploadMode: 'upload', manualUploadFiles: [] })
         return
       }
       await beginRun(action, [])
@@ -179,7 +201,8 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
           envId: env.id,
           actionId: current.action.id,
           uploads: current.uploadMode === 'skip' ? [] : current.uploads,
-          uploadMode: current.uploadMode
+          uploadMode: current.uploadMode,
+          manualUploadFiles: current.uploadMode === 'skip' ? current.manualUploadFiles : []
         })
       )
       setPending({ ...current, precheck })
@@ -222,7 +245,7 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <Space align="center">
@@ -333,7 +356,21 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
         ) : null}
       </Card>
 
-      <Card size="small" title="执行输出" styles={{ body: { padding: 0 } }}>
+      <Card
+        size="small"
+        title="执行输出"
+        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        styles={{
+          body: {
+            flex: 1,
+            minHeight: 0,
+            padding: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }
+        }}
+      >
         <RunConsole env={env} />
       </Card>
 
@@ -343,6 +380,7 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
         precheck={pending?.precheck ?? null}
         uploads={pending?.uploads ?? []}
         uploadMode={pending?.uploadMode ?? 'upload'}
+        manualUploadFiles={pending?.manualUploadFiles ?? []}
         loading={starting}
         prechecking={prechecking}
         onUploadsChange={(uploads) => {
@@ -350,6 +388,9 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
         }}
         onUploadModeChange={(uploadMode) => {
           setPending((current) => (current ? { ...current, uploadMode } : current))
+        }}
+        onManualUploadFilesChange={(manualUploadFiles) => {
+          setPending((current) => (current ? { ...current, manualUploadFiles } : current))
         }}
         onPrecheck={() => void precheckPending()}
         onBack={() => {
@@ -362,7 +403,8 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
               pending.action,
               pending.uploadMode === 'skip' ? [] : pending.uploads,
               false,
-              pending.uploadMode
+              pending.uploadMode,
+              pending.uploadMode === 'skip' ? pending.manualUploadFiles : []
             )
           }
         }}

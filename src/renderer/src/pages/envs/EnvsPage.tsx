@@ -136,7 +136,7 @@ export function EnvsPage(): React.ReactElement {
         ) : null}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         {selectedEnv ? (
           <EnvDetail
             env={selectedEnv}

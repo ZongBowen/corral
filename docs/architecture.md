@@ -227,7 +227,7 @@ upload.ts 负责实际传输：
 
 - 全局并发上限 4；同一环境同时只允许一个执行（envLocks）。
 - precheck()：接收本次上传模式和上传清单，展开上传目标并生成 Name/Path 上传变量，分别生成实际值预览与保留运行时变量的执行命令；跳过模式不检查本地来源，不建立 SSH。
-- start()：重新生成本次上传计划并保存上传模式、上传项和变量快照，创建 Run 记录、入队、立即返回 runId；上传模式下来源缺失时不创建运行记录，跳过模式生成空计划且禁止引用上传变量。
+- start()：重新生成本次上传计划并保存上传模式、上传项、手工文件项和变量快照，创建 Run 记录、入队、立即返回 runId；上传模式下来源缺失时不创建运行记录，跳过模式生成空计划，并可根据手工文件名生成被引用的上传变量。
 - 状态机只允许预定义迁移；终态后忽略迟到事件。
 - 执行过程：连接 → 目录校验（可跳过）→ 预上传 → bash -lc 执行。
 - 命令前置 PID 标记：printf '\036CORRAL_PID:%s\036\n' "$$" >&2，主进程解析并剥离。
@@ -360,7 +360,7 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 - EnvAction：name、command、timeoutSec、confirm、danger、uploadRules。
 - UploadRule：id、targetDir、conflict、variableKey；操作中只保存稳定的上传目标规则。设置 variableKey 时仅允许单个文件，并生成对应的 Name/Path 变量。
 - UploadItem：ruleId、kind（file/dir）、localPath、targetDir、conflict（backup/overwrite）；仅作为一次执行的实际上传参数。
-- Run：环境/服务器/操作名称快照、原始命令、实际值预览命令、上传模式、上传项与变量快照、状态、退出码、错误分类、耗时、日志大小、上传统计、远端 PID。
+- Run：环境/服务器/操作名称快照、原始命令、实际值预览命令、上传模式、上传项、手工文件项与变量快照、状态、退出码、错误分类、耗时、日志大小、上传统计、远端 PID。
 
 设置默认值：默认超时 300s、执行前校验目录开启、上传冲突默认备份、上传空闲超时 60s、日志保留 200 条 / 30 天、输出 UTF-8、旧 SSH 算法关闭。
 
@@ -402,7 +402,7 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 | ActionEditor | 操作名称、命令、超时、确认、危险标记、变量插入、预览、上传目标规则 |
 | UploadRuleEditor | 操作编辑器中的目标目录与冲突策略配置 |
 | UploadEditor | 执行弹窗中按目标规则选择本次本地文件/目录 |
-| ConfirmRunModal | 本次上传/跳过模式、上传来源选择、预检、上传清单、变量实际值、总大小、解析后命令、缺失文件警告 |
+| ConfirmRunModal | 本次上传/跳过模式、上传来源或手工远程文件名、预检、上传清单、变量实际值、总大小、解析后命令、缺失文件警告 |
 | HostKeyModal | 首次信任/指纹变化、30 秒倒计时 |
 
 ### 10.4 Zustand stores
@@ -467,7 +467,7 @@ electron-builder.yml：
 ## 12. 测试架构
 
 - vitest.config.mts：Node 环境，electron 别名到 tests/mocks/electron.ts，只收集 src/**/*.test.ts。
-- 当前覆盖 13 个测试文件、87 个用例：
+- 当前覆盖 13 个测试文件、89 个用例：
   - shared/command：shell 转义、变量解析、路径拼接、校验脚本解析；
   - shared/pathCheck、envsStore：校验目标变化、快照保留与失效；
   - store：默认值、原子写、损坏备份、旧数据迁移；

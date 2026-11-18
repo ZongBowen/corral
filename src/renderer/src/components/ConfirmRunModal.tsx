@@ -1,8 +1,23 @@
-import { Alert, Button, Modal, Segmented, Space, Tag, Typography, theme } from 'antd'
-import type { EnvAction, RunPrecheck, RunUploadMode, UploadItem } from '@shared/types'
+import { Alert, Button, Input, Modal, Segmented, Space, Tag, Typography, theme } from 'antd'
+import type {
+  EnvAction,
+  ManualUploadFile,
+  RunPrecheck,
+  RunUploadMode,
+  UploadItem
+} from '@shared/types'
 import { extractVariables } from '@shared/command'
 import { formatBytes } from '../utils/format'
 import { UploadEditor } from './UploadEditor'
+
+function isValidManualFileName(value: string): boolean {
+  const fileName = value.trim()
+  return fileName.length > 0 &&
+    fileName.length <= 255 &&
+    fileName !== '.' &&
+    fileName !== '..' &&
+    !/[/\\\0\n\r]/.test(fileName)
+}
 
 interface ConfirmRunModalProps {
   open: boolean
@@ -10,10 +25,12 @@ interface ConfirmRunModalProps {
   precheck: RunPrecheck | null
   uploads: UploadItem[]
   uploadMode: RunUploadMode
+  manualUploadFiles: ManualUploadFile[]
   loading: boolean
   prechecking: boolean
   onUploadsChange: (uploads: UploadItem[]) => void
   onUploadModeChange: (mode: RunUploadMode) => void
+  onManualUploadFilesChange: (files: ManualUploadFile[]) => void
   onPrecheck: () => void
   onBack: () => void
   onCancel: () => void
@@ -26,10 +43,12 @@ export function ConfirmRunModal({
   precheck,
   uploads,
   uploadMode,
+  manualUploadFiles,
   loading,
   prechecking,
   onUploadsChange,
   onUploadModeChange,
+  onManualUploadFilesChange,
   onPrecheck,
   onBack,
   onCancel,
@@ -37,20 +56,38 @@ export function ConfirmRunModal({
 }: ConfirmRunModalProps): React.ReactElement {
   const { token } = theme.useToken()
   const hasUploadRules = Boolean(action && action.uploadRules.length > 0)
-  const uploadVariableNames = action
-    ? action.uploadRules.flatMap((rule) => rule.variableKey ? [rule.variableKey + 'Name', rule.variableKey + 'Path'] : [])
-    : []
   const commandVariables = action ? extractVariables(action.command) : []
-  const unavailableSkipVariables = uploadVariableNames.filter((key) => commandVariables.includes(key))
-  const skipBlocked = uploadMode === 'skip' && unavailableSkipVariables.length > 0
+  const referencedVariableRules = action
+    ? action.uploadRules.filter((rule) =>
+        rule.variableKey && (
+          commandVariables.includes(rule.variableKey + 'Name') ||
+          commandVariables.includes(rule.variableKey + 'Path')
+        )
+      )
+    : []
+  const missingManualRules = uploadMode === 'skip'
+    ? referencedVariableRules.filter((rule) => {
+        const fileName = manualUploadFiles.find((item) => item.ruleId === rule.id)?.fileName ?? ''
+        return !isValidManualFileName(fileName)
+      })
+    : []
   const selecting = hasUploadRules && !precheck
   const busy = loading || prechecking
   const missing = precheck?.missing ?? []
   const uploadVariableEntries = Object.entries(precheck?.uploadVariables ?? {})
-  const ready = !skipBlocked && (uploadMode === 'skip' || Boolean(
-    action?.uploadRules.every((rule) => uploads.some((item) => item.ruleId === rule.id))
-  ))
+  const ready = uploadMode === 'skip'
+    ? missingManualRules.length === 0
+    : Boolean(action?.uploadRules.every((rule) => uploads.some((item) => item.ruleId === rule.id)))
   const confirmText = action?.danger ? '确认' + action.name : '确认执行'
+
+  const updateManualFile = (ruleId: string, fileName: string): void => {
+    const exists = manualUploadFiles.some((item) => item.ruleId === ruleId)
+    onManualUploadFilesChange(
+      exists
+        ? manualUploadFiles.map((item) => item.ruleId === ruleId ? { ...item, fileName } : item)
+        : [...manualUploadFiles, { ruleId, fileName }]
+    )
+  }
 
   return (
     <Modal
@@ -110,11 +147,11 @@ export function ConfirmRunModal({
           {uploadMode === 'skip' ? (
             <>
               <Alert
-                type={skipBlocked ? 'error' : 'warning'}
+                type={referencedVariableRules.length > 0 ? 'info' : 'warning'}
                 showIcon
-                title={skipBlocked ? '当前命令需要上传变量，不能跳过上传' : '本次将跳过上传'}
-                description={skipBlocked
-                  ? '命令引用了 ' + unavailableSkipVariables.map((key) => '${' + key + '}').join('、') + '，请使用上传模式或移除变量。'
+                title={referencedVariableRules.length > 0 ? '录入已上传的远程文件名' : '本次将跳过上传'}
+                description={referencedVariableRules.length > 0
+                  ? '文件名仅用于生成命令变量，不执行上传，也不会校验远程文件是否存在。'
                   : '请确认命令所需文件已上传到下列目标目录。跳过上传不会校验远程文件是否存在。'}
               />
               <div>
@@ -127,6 +164,36 @@ export function ConfirmRunModal({
                   ))}
                 </Space>
               </div>
+              {referencedVariableRules.map((rule) => {
+                const fileName = manualUploadFiles.find((item) => item.ruleId === rule.id)?.fileName ?? ''
+                const valid = isValidManualFileName(fileName)
+                return (
+                  <div key={rule.id}>
+                    <Typography.Text strong>{rule.targetDir} 中的已上传文件名：</Typography.Text>
+                    <Input
+                      value={fileName}
+                      disabled={prechecking}
+                      allowClear
+                      maxLength={255}
+                      placeholder="例如 app-20261117.zip"
+                      aria-label={'已上传文件名：' + rule.targetDir}
+                      status={fileName.trim() && !valid ? 'error' : undefined}
+                      style={{ marginTop: 8 }}
+                      onChange={(event) => updateManualFile(rule.id, event.target.value)}
+                    />
+                    <div style={{ marginTop: 4 }}>
+                      <Typography.Text type="secondary" className="corral-code" style={{ fontSize: 12 }}>
+                        {'生成 ${' + rule.variableKey + 'Name}、${' + rule.variableKey + 'Path}'}
+                      </Typography.Text>
+                    </div>
+                    {fileName.trim() && !valid ? (
+                      <Typography.Text type="danger" style={{ fontSize: 12 }}>
+                        请输入单个文件名，不能包含路径或路径穿越。
+                      </Typography.Text>
+                    ) : null}
+                  </div>
+                )
+              })}
             </>
           ) : (
             <>
@@ -148,7 +215,13 @@ export function ConfirmRunModal({
       ) : (
         <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           {hasUploadRules && uploadMode === 'skip' ? (
-            <Alert type="warning" showIcon title="本次跳过上传（文件已手工准备）" />
+            <Alert
+              type="warning"
+              showIcon
+              title={manualUploadFiles.length > 0
+                ? '本次跳过上传，使用手工录入的文件名'
+                : '本次跳过上传（文件已手工准备）'}
+            />
           ) : null}
           {missing.length > 0 ? (
             <Alert

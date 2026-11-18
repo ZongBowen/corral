@@ -10,13 +10,12 @@ import {
   Select,
   Space,
   Switch,
-  Typography,
-  theme
+  Typography
 } from 'antd'
 import type { SelectProps } from 'antd'
 import type { DevEnv, EnvAction, UploadRule } from '@shared/types'
 import { newId } from '@shared/id'
-import { findSingleQuotedVars, findUnquotedVars, resolveVariables } from '@shared/command'
+import { extractVariables, findSingleQuotedVars, findUnquotedVars, resolveVariables } from '@shared/command'
 import {
   COMMAND_SNIPPETS,
   buildSnippetOptions,
@@ -45,7 +44,6 @@ interface ActionForm {
 
 export function ActionEditor({ open, env, action, onClose, onSave }: ActionEditorProps): React.ReactElement {
   const { message, modal } = App.useApp()
-  const { token } = theme.useToken()
   const [form] = Form.useForm<ActionForm>()
   const [uploadRules, setUploadRules] = useState<UploadRule[]>([])
   const [saving, setSaving] = useState(false)
@@ -68,11 +66,6 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
     }),
     [uploadRules]
   )
-  const commandVars = useMemo(() => {
-    const result = { ...vars }
-    for (const key of uploadVariableNames) result[key] = '${' + key + '}'
-    return result
-  }, [vars, uploadVariableNames])
   const variableOptionGroups = useMemo<SelectProps['options']>(() => [
     { label: '环境变量', options: Object.keys(vars).map((key) => ({ value: key, label: key })) },
     ...(uploadVariableNames.length > 0
@@ -101,7 +94,9 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
     setSnippetKey(undefined)
   }, [open, action, form, settings.defaultTimeoutSec])
 
-  const resolved = resolveVariables(command, commandVars)
+  const missingVars = extractVariables(command).filter(
+    (key) => !Object.prototype.hasOwnProperty.call(vars, key) && !uploadVariableNames.includes(key)
+  )
   const unquoted = findUnquotedVars(command)
   const singleQuotedUploadVars = findSingleQuotedVars(command).filter((key) => uploadVariableNames.includes(key))
 
@@ -337,12 +332,12 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
           />
         </Form.Item>
 
-        {resolved.missing.length > 0 ? (
+        {missingVars.length > 0 ? (
           <Alert
             type="error"
             showIcon
             style={{ marginBottom: 12 }}
-            title={'引用了未定义的变量：' + resolved.missing.join('、')}
+            title={'引用了未定义的变量：' + missingVars.join('、')}
           />
         ) : null}
         {singleQuotedUploadVars.length > 0 ? (
@@ -361,20 +356,6 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
             title={'变量建议加双引号，否则路径含空格时会失败：' + unquoted.join('、')}
           />
         ) : null}
-
-        <Typography.Text type="secondary">执行预览</Typography.Text>
-        <pre
-          className="corral-code"
-          style={{
-            margin: '6px 0 20px',
-            padding: 12,
-            borderRadius: 8,
-            background: token.colorFillQuaternary,
-            whiteSpace: 'pre-wrap'
-          }}
-        >
-          {resolved.text || '（暂无命令）'}
-        </pre>
 
         <Typography.Title level={5} style={{ marginTop: 0 }}>
           执行前上传（可选）

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   App,
   Button,
@@ -56,12 +56,43 @@ export function RunsPage(): React.ReactElement {
   const [logOffset, setLogOffset] = useState(0)
   const [logEof, setLogEof] = useState(true)
   const [logLoading, setLogLoading] = useState(false)
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+  const [tableBodyHeight, setTableBodyHeight] = useState<number | undefined>(undefined)
 
   useEffect(() => {
     void load()
     void useEnvsStore.getState().load()
     void useServersStore.getState().load()
   }, [load])
+
+  useLayoutEffect(() => {
+    const container = tableContainerRef.current
+    if (!container) return
+
+    const updateTableBodyHeight = (): void => {
+      const header = container.querySelector<HTMLElement>('.ant-table-thead')
+      const pagination = container.querySelector<HTMLElement>('.ant-pagination')
+      let paginationHeight = 0
+      if (pagination && pagination.getClientRects().length > 0) {
+        const { marginTop, marginBottom } = window.getComputedStyle(pagination)
+        paginationHeight = pagination.offsetHeight + parseFloat(marginTop) + parseFloat(marginBottom)
+      }
+      const nextHeight = Math.max(
+        0,
+        Math.floor(container.clientHeight - (header?.offsetHeight ?? 0) - paginationHeight)
+      )
+      setTableBodyHeight((current) => (current === nextHeight ? current : nextHeight))
+    }
+
+    updateTableBodyHeight()
+    const observer = new ResizeObserver(updateTableBodyHeight)
+    observer.observe(container)
+    const header = container.querySelector<HTMLElement>('.ant-table-thead')
+    const pagination = container.querySelector<HTMLElement>('.ant-pagination')
+    if (header) observer.observe(header)
+    if (pagination) observer.observe(pagination)
+    return () => observer.disconnect()
+  }, [runs.length])
 
   const query = (): void => {
     const filter: RunFilter = {
@@ -157,16 +188,8 @@ export function RunsPage(): React.ReactElement {
     {
       title: '服务器 / 环境',
       width: 220,
-      render: (_, run) => (
-        <div>
-          <Typography.Text>{run.envName}</Typography.Text>
-          <div>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {run.serverName}
-            </Typography.Text>
-          </div>
-        </div>
-      )
+      ellipsis: true,
+      render: (_, run) => run.serverName + ' / ' + run.envName
     },
     { title: '操作', dataIndex: 'actionName', width: 120 },
     {
@@ -210,8 +233,8 @@ export function RunsPage(): React.ReactElement {
   ]
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 12 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
           执行历史
         </Typography.Title>
@@ -226,7 +249,7 @@ export function RunsPage(): React.ReactElement {
         </Space>
       </div>
 
-      <Space style={{ marginBottom: 8 }} wrap>
+      <Space style={{ flexShrink: 0, marginBottom: 8 }} wrap>
         <Select
           allowClear
           placeholder="服务器"
@@ -265,15 +288,19 @@ export function RunsPage(): React.ReactElement {
         </Button>
       </Space>
 
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={runs}
-        loading={loading}
-        pagination={{ pageSize: 20, showSizeChanger: false }}
-        locale={{ emptyText: <Empty description="暂无执行记录" /> }}
-        onRow={(run) => ({ onDoubleClick: () => void openDetail(run) })}
-      />
+      <div ref={tableContainerRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Table
+          rowKey="id"
+          size="small"
+          columns={columns}
+          dataSource={runs}
+          loading={loading}
+          scroll={{ y: tableBodyHeight }}
+          pagination={{ pageSize: 15, showSizeChanger: false }}
+          locale={{ emptyText: <Empty description="暂无执行记录" /> }}
+          onRow={(run) => ({ onDoubleClick: () => void openDetail(run) })}
+        />
+      </div>
 
       <Drawer
         open={Boolean(detail)}
@@ -306,7 +333,9 @@ export function RunsPage(): React.ReactElement {
               <Descriptions.Item label="环境">{detail.envName}</Descriptions.Item>
               {detail.uploadMode === 'skip' ? (
                 <Descriptions.Item label="上传" span={2}>
-                  本次跳过上传（文件已手工准备）
+                  {detail.manualUploadFiles?.length
+                    ? '本次跳过上传，文件名手工录入（未执行 SFTP）'
+                    : '本次跳过上传（文件已手工准备）'}
                 </Descriptions.Item>
               ) : null}
               {detail.uploads?.length ? (

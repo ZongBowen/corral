@@ -10,12 +10,11 @@ import { unwrap } from '../api'
 
 interface LogPanelProps {
   stream: RunStream
-  height?: number
   onStop?: () => void
   onExport?: () => void
 }
 
-export function LogPanel({ stream, height = 360, onStop, onExport }: LogPanelProps): React.ReactElement {
+export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.ReactElement {
   const { token } = theme.useToken()
   const { message } = App.useApp()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -75,6 +74,10 @@ export function LogPanel({ stream, height = 360, onStop, onExport }: LogPanelPro
         border: '1px solid ' + token.colorBorderSecondary,
         borderRadius: token.borderRadiusLG,
         background: token.colorBgContainer,
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
         overflow: 'hidden'
       }}
     >
@@ -151,7 +154,7 @@ export function LogPanel({ stream, height = 360, onStop, onExport }: LogPanelPro
         </div>
       ) : null}
 
-      <div className="corral-log-wrap">
+      <div className="corral-log-wrap" style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         <div
           ref={scrollRef}
           onScroll={(event) => {
@@ -160,7 +163,8 @@ export function LogPanel({ stream, height = 360, onStop, onExport }: LogPanelPro
             setStick(distance < 24)
           }}
           style={{
-            height,
+            flex: 1,
+            minHeight: 0,
             overflow: 'auto',
             padding: '10px 12px',
             background: token.colorFillQuaternary
