@@ -40,7 +40,9 @@ export function EnvsPage(): React.ReactElement {
     return envs.filter(
       (env) =>
         env.name.toLowerCase().includes(text) ||
-        (servers.find((server) => server.id === env.serverId)?.name ?? '').toLowerCase().includes(text)
+        (servers.find((server) => server.id === env.serverId)?.name ?? '')
+          .toLowerCase()
+          .includes(text)
     )
   }, [envs, keyword, servers])
 
@@ -146,18 +148,16 @@ export function EnvsPage(): React.ReactElement {
             }}
           />
         ) : (
-          <CardishEmpty onCreate={() => {
-            setEditing(null)
-            setDrawerOpen(true)
-          }} />
+          <CardishEmpty
+            onCreate={() => {
+              setEditing(null)
+              setDrawerOpen(true)
+            }}
+          />
         )}
       </div>
 
-      <EnvDrawer
-        open={drawerOpen}
-        env={editing}
-        onClose={() => setDrawerOpen(false)}
-      />
+      <EnvDrawer open={drawerOpen} env={editing} onClose={() => setDrawerOpen(false)} />
     </div>
   )
 }

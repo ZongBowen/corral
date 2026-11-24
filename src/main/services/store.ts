@@ -48,7 +48,10 @@ export class StoreService {
   }
 
   async init(): Promise<void> {
-    const result = await readJsonFile<LooseRecord>(this.filePath, () => emptyState() as unknown as LooseRecord)
+    const result = await readJsonFile<LooseRecord>(
+      this.filePath,
+      () => emptyState() as unknown as LooseRecord
+    )
     this.corruptOnLoad = result.corrupt
     this.state = this.migrate(result.data)
     if (result.corrupt) {
@@ -182,7 +185,11 @@ function migrateUploadRules(action: LooseRecord): UploadRule[] {
 function migrateEnv(input: unknown): DevEnv | null {
   if (!input || typeof input !== 'object') return null
   const raw = input as LooseRecord
-  if (typeof raw.id !== 'string' || typeof raw.serverId !== 'string' || typeof raw.name !== 'string') {
+  if (
+    typeof raw.id !== 'string' ||
+    typeof raw.serverId !== 'string' ||
+    typeof raw.name !== 'string'
+  ) {
     return null
   }
   const actions = Array.isArray(raw.actions)

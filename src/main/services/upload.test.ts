@@ -44,7 +44,12 @@ class FakeSftp {
   })
 
   fastPut = vi.fn(
-    (localPath: string, remotePath: string, options: { step?: (n: number, c: number, t: number) => void }, callback: (error?: Error | null) => void) => {
+    (
+      localPath: string,
+      remotePath: string,
+      options: { step?: (n: number, c: number, t: number) => void },
+      callback: (error?: Error | null) => void
+    ) => {
       const size = UPLOAD_SIZE
       this.files.set(remotePath, size)
       options.step?.(size, size, size)
@@ -60,18 +65,24 @@ class FakeSftp {
 class FakeClient {
   commands: string[] = []
 
-  exec = vi.fn((command: string, _options: unknown, callback: (error: Error | undefined, stream?: unknown) => void) => {
-    this.commands.push(command)
-    const stream = new EventEmitter() as EventEmitter & { stderr: EventEmitter }
-    stream.stderr = new EventEmitter()
-    callback(undefined, stream)
-    setImmediate(() => {
-      if (command.includes('CORRAL_BAK')) {
-        stream.emit('data', Buffer.from('CORRAL_BAK:/opt/app/lib/app.jar.bak-20261029-120000\n'))
-      }
-      stream.emit('close', 0)
-    })
-  })
+  exec = vi.fn(
+    (
+      command: string,
+      _options: unknown,
+      callback: (error: Error | undefined, stream?: unknown) => void
+    ) => {
+      this.commands.push(command)
+      const stream = new EventEmitter() as EventEmitter & { stderr: EventEmitter }
+      stream.stderr = new EventEmitter()
+      callback(undefined, stream)
+      setImmediate(() => {
+        if (command.includes('CORRAL_BAK')) {
+          stream.emit('data', Buffer.from('CORRAL_BAK:/opt/app/lib/app.jar.bak-20261029-120000\n'))
+        }
+        stream.emit('close', 0)
+      })
+    }
+  )
 }
 
 const UPLOAD_SIZE = 5
@@ -85,7 +96,10 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 30 })
 })
 
-function makePlan(conflict: 'backup' | 'overwrite', targetPath = '/opt/app/lib/app.jar'): UploadPlan {
+function makePlan(
+  conflict: 'backup' | 'overwrite',
+  targetPath = '/opt/app/lib/app.jar'
+): UploadPlan {
   const file = join(dir, 'app.jar')
   return {
     items: [
@@ -119,13 +133,18 @@ describe('Uploader', () => {
     const system = vi.fn()
     const uploader = new Uploader()
 
-    const stats = await uploader.run(client as unknown as Client, sftp as unknown as SFTPWrapper, makePlan('overwrite'), {
-      runId: 'run-12345678',
-      signal: new AbortController().signal,
-      idleTimeoutMs: 60_000,
-      onProgress: progress,
-      onSystem: system
-    })
+    const stats = await uploader.run(
+      client as unknown as Client,
+      sftp as unknown as SFTPWrapper,
+      makePlan('overwrite'),
+      {
+        runId: 'run-12345678',
+        signal: new AbortController().signal,
+        idleTimeoutMs: 60_000,
+        onProgress: progress,
+        onSystem: system
+      }
+    )
 
     expect(stats.fileCount).toBe(1)
     expect(stats.transferredBytes).toBe(UPLOAD_SIZE)
@@ -143,13 +162,18 @@ describe('Uploader', () => {
     const client = new FakeClient()
     const uploader = new Uploader()
 
-    const stats = await uploader.run(client as unknown as Client, sftp as unknown as SFTPWrapper, makePlan('backup'), {
-      runId: 'run-12345678',
-      signal: new AbortController().signal,
-      idleTimeoutMs: 60_000,
-      onProgress: vi.fn(),
-      onSystem: vi.fn()
-    })
+    const stats = await uploader.run(
+      client as unknown as Client,
+      sftp as unknown as SFTPWrapper,
+      makePlan('backup'),
+      {
+        runId: 'run-12345678',
+        signal: new AbortController().signal,
+        idleTimeoutMs: 60_000,
+        onProgress: vi.fn(),
+        onSystem: vi.fn()
+      }
+    )
 
     expect(stats.backups).toEqual(['/opt/app/lib/app.jar.bak-20261029-120000'])
     expect(client.commands.some((command) => command.includes('CORRAL_BAK'))).toBe(true)

@@ -33,7 +33,7 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
       const tokens = Anser.ansiToJson(line.text, { use_classes: false })
       tokens.forEach((item, index) => {
         if (!item.content) return
-        const color = item.fg ? 'rgb(' + item.fg + ')' : item.fg_truecolor ?? baseColor
+        const color = item.fg ? 'rgb(' + item.fg + ')' : (item.fg_truecolor ?? baseColor)
         result.push({
           key: String(lineIndex) + '-' + String(index),
           content: item.content,
@@ -56,7 +56,9 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
     }
   }, [stream.lines, stick])
 
-  const running = ['queued', 'connecting', 'validating', 'uploading', 'running'].includes(stream.status)
+  const running = ['queued', 'connecting', 'validating', 'uploading', 'running'].includes(
+    stream.status
+  )
 
   const copyAll = async (): Promise<void> => {
     const text = stream.lines.map((line) => line.text).join('')
@@ -92,25 +94,33 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
         }}
       >
         <StatusBadge status={stream.status} />
-        <Typography.Text type="secondary">
-          耗时 {formatDuration(stream.durationMs)}
-        </Typography.Text>
+        <Typography.Text type="secondary">耗时 {formatDuration(stream.durationMs)}</Typography.Text>
         {stream.exitCode !== undefined ? (
           <Typography.Text type="secondary">退出码 {stream.exitCode}</Typography.Text>
         ) : null}
         <div style={{ flex: 1 }} />
         {running && onStop ? (
           <Tooltip title="尽力终止远端命令">
-            <Button size="small" color="danger" variant="solid" icon={<StopOutlined />} onClick={onStop}>
+            <Button
+              size="small"
+              color="danger"
+              variant="solid"
+              icon={<StopOutlined />}
+              onClick={onStop}
+            >
               停止
             </Button>
           </Tooltip>
         ) : null}
         <Tooltip title="清屏">
-          <Button size="small" icon={<DeleteOutlined />} onClick={() => {
-            useRunStreamStore.getState().clear(stream.runId)
-            void message.success('已清屏（完整日志仍保留在文件中）')
-          }}>
+          <Button
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={() => {
+              useRunStreamStore.getState().clear(stream.runId)
+              void message.success('已清屏（完整日志仍保留在文件中）')
+            }}
+          >
             清屏
           </Button>
         </Tooltip>
@@ -133,21 +143,29 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
       ) : null}
 
       {stream.progress && stream.status === 'uploading' ? (
-        <div style={{ padding: '8px 12px', borderBottom: '1px solid ' + token.colorBorderSecondary }}>
+        <div
+          style={{ padding: '8px 12px', borderBottom: '1px solid ' + token.colorBorderSecondary }}
+        >
           <Space orientation="vertical" size={2} style={{ width: '100%' }}>
             <Typography.Text style={{ fontSize: 12 }}>
-              上传 {stream.progress.fileIndex}/{stream.progress.fileCount} · {stream.progress.fileName}
+              上传 {stream.progress.fileIndex}/{stream.progress.fileCount} ·{' '}
+              {stream.progress.fileName}
             </Typography.Text>
             <Progress
               percent={
                 stream.progress.totalBytes > 0
-                  ? Math.min(100, (stream.progress.transferredBytes / stream.progress.totalBytes) * 100)
+                  ? Math.min(
+                      100,
+                      (stream.progress.transferredBytes / stream.progress.totalBytes) * 100
+                    )
                   : 0
               }
               size="small"
               status={running ? 'active' : 'normal'}
               format={() =>
-                formatBytes(stream.progress!.transferredBytes) + ' / ' + formatBytes(stream.progress!.totalBytes)
+                formatBytes(stream.progress!.transferredBytes) +
+                ' / ' +
+                formatBytes(stream.progress!.totalBytes)
               }
             />
           </Space>

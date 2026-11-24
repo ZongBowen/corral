@@ -109,7 +109,11 @@ export function SettingsPage(): React.ReactElement {
                 ]}
               />
             </Form.Item>
-            <Form.Item name="uploadIdleTimeoutSec" label="上传空闲超时（秒）" style={{ width: 180 }}>
+            <Form.Item
+              name="uploadIdleTimeoutSec"
+              label="上传空闲超时（秒）"
+              style={{ width: 180 }}
+            >
               <InputNumber min={10} max={3600} style={{ width: '100%' }} />
             </Form.Item>
           </Space>

@@ -11,7 +11,12 @@ interface UploadEditorProps {
   disabled?: boolean
 }
 
-export function UploadEditor({ rules, value, onChange, disabled = false }: UploadEditorProps): React.ReactElement {
+export function UploadEditor({
+  rules,
+  value,
+  onChange,
+  disabled = false
+}: UploadEditorProps): React.ReactElement {
   const { message } = App.useApp()
   const { token } = theme.useToken()
 
@@ -21,7 +26,12 @@ export function UploadEditor({ rules, value, onChange, disabled = false }: Uploa
       if (paths.length === 0) return
       const selectedPaths = rule.variableKey
         ? paths.slice(0, 1)
-        : paths.filter((path) => !value.some((item) => item.ruleId === rule.id && item.kind === 'file' && item.localPath === path))
+        : paths.filter(
+            (path) =>
+              !value.some(
+                (item) => item.ruleId === rule.id && item.kind === 'file' && item.localPath === path
+              )
+          )
       const items = selectedPaths.map((path) => ({
         id: newId(),
         ruleId: rule.id,
@@ -40,7 +50,13 @@ export function UploadEditor({ rules, value, onChange, disabled = false }: Uploa
   const addDirectory = async (rule: UploadRule): Promise<void> => {
     try {
       const path = await unwrap(window.api.dialog.pickDirectory())
-      if (!path || value.some((item) => item.ruleId === rule.id && item.kind === 'dir' && item.localPath === path)) return
+      if (
+        !path ||
+        value.some(
+          (item) => item.ruleId === rule.id && item.kind === 'dir' && item.localPath === path
+        )
+      )
+        return
       onChange([
         ...value,
         {
@@ -90,7 +106,10 @@ export function UploadEditor({ rules, value, onChange, disabled = false }: Uploa
                     <Tag color={item.kind === 'file' ? 'blue' : 'gold'}>
                       {item.kind === 'file' ? '文件' : '目录'}
                     </Tag>
-                    <Typography.Text className="corral-code" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+                    <Typography.Text
+                      className="corral-code"
+                      style={{ fontSize: 12, wordBreak: 'break-all' }}
+                    >
                       {item.localPath}
                     </Typography.Text>
                     <Button
@@ -108,11 +127,21 @@ export function UploadEditor({ rules, value, onChange, disabled = false }: Uploa
             </Space>
 
             <Space wrap>
-              <Button type="dashed" disabled={disabled} icon={<FileAddOutlined />} onClick={() => void addFiles(rule)}>
+              <Button
+                type="dashed"
+                disabled={disabled}
+                icon={<FileAddOutlined />}
+                onClick={() => void addFiles(rule)}
+              >
                 {rule.variableKey && items.length > 0 ? '重新选择文件' : '添加文件'}
               </Button>
               {!rule.variableKey ? (
-                <Button type="dashed" disabled={disabled} icon={<FolderAddOutlined />} onClick={() => void addDirectory(rule)}>
+                <Button
+                  type="dashed"
+                  disabled={disabled}
+                  icon={<FolderAddOutlined />}
+                  onClick={() => void addDirectory(rule)}
+                >
                   添加目录
                 </Button>
               ) : null}

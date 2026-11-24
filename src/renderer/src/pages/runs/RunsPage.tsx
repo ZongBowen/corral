@@ -75,7 +75,8 @@ export function RunsPage(): React.ReactElement {
       let paginationHeight = 0
       if (pagination && pagination.getClientRects().length > 0) {
         const { marginTop, marginBottom } = window.getComputedStyle(pagination)
-        paginationHeight = pagination.offsetHeight + parseFloat(marginTop) + parseFloat(marginBottom)
+        paginationHeight =
+          pagination.offsetHeight + parseFloat(marginTop) + parseFloat(marginBottom)
       }
       const nextHeight = Math.max(
         0,
@@ -113,7 +114,9 @@ export function RunsPage(): React.ReactElement {
     setLogEof(false)
     setLogLoading(true)
     try {
-      const chunk = await unwrap(window.api.run.readLog({ runId: run.id, offset: 0, limit: 262144 }))
+      const chunk = await unwrap(
+        window.api.run.readLog({ runId: run.id, offset: 0, limit: 262144 })
+      )
       setLogText(chunk.content)
       setLogOffset(chunk.nextOffset)
       setLogEof(chunk.eof)
@@ -215,7 +218,9 @@ export function RunsPage(): React.ReactElement {
         run.uploadMode === 'skip'
           ? '已跳过'
           : run.uploadStats
-            ? String(run.uploadStats.fileCount) + ' 个文件 · ' + formatBytes(run.uploadStats.totalBytes)
+            ? String(run.uploadStats.fileCount) +
+              ' 个文件 · ' +
+              formatBytes(run.uploadStats.totalBytes)
             : '—'
     },
     {
@@ -226,7 +231,13 @@ export function RunsPage(): React.ReactElement {
           <Button size="small" type="link" onClick={() => void openDetail(run)}>
             详情
           </Button>
-          <Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={() => remove(run)} />
+          <Button
+            size="small"
+            type="link"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => remove(run)}
+          />
         </Space>
       )
     }
@@ -327,8 +338,12 @@ export function RunsPage(): React.ReactElement {
                 <StatusBadge status={detail.status} />
               </Descriptions.Item>
               <Descriptions.Item label="退出码">{detail.exitCode ?? '—'}</Descriptions.Item>
-              <Descriptions.Item label="开始时间">{formatDateTime(detail.startedAt)}</Descriptions.Item>
-              <Descriptions.Item label="耗时">{formatDuration(detail.durationMs)}</Descriptions.Item>
+              <Descriptions.Item label="开始时间">
+                {formatDateTime(detail.startedAt)}
+              </Descriptions.Item>
+              <Descriptions.Item label="耗时">
+                {formatDuration(detail.durationMs)}
+              </Descriptions.Item>
               <Descriptions.Item label="服务器">{detail.serverName}</Descriptions.Item>
               <Descriptions.Item label="环境">{detail.envName}</Descriptions.Item>
               {detail.uploadMode === 'skip' ? (
@@ -344,8 +359,11 @@ export function RunsPage(): React.ReactElement {
                     {detail.uploads.map((item) => (
                       <Typography.Text key={item.id} style={{ fontSize: 12 }}>
                         {item.kind === 'file' ? '文件' : '目录'}{' '}
-                        <span className="corral-code">{item.localPath} → {item.targetDir}</span>
-                        {' · '}{item.conflict === 'backup' ? '覆盖前备份' : '直接覆盖'}
+                        <span className="corral-code">
+                          {item.localPath} → {item.targetDir}
+                        </span>
+                        {' · '}
+                        {item.conflict === 'backup' ? '覆盖前备份' : '直接覆盖'}
                       </Typography.Text>
                     ))}
                   </Space>
@@ -380,7 +398,15 @@ export function RunsPage(): React.ReactElement {
             </Descriptions>
 
             <Typography.Text strong>命令</Typography.Text>
-            <pre className="corral-code" style={{ margin: 0, padding: 12, background: token.colorFillQuaternary, borderRadius: 8 }}>
+            <pre
+              className="corral-code"
+              style={{
+                margin: 0,
+                padding: 12,
+                background: token.colorFillQuaternary,
+                borderRadius: 8
+              }}
+            >
               {detail.resolvedCommand}
             </pre>
 

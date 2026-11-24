@@ -1,6 +1,12 @@
 import { useRef, useState } from 'react'
 import { App, Button, Drawer, Empty, Space, Tag, Typography, theme } from 'antd'
-import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined
+} from '@ant-design/icons'
 import type { DevEnv, EnvAction } from '@shared/types'
 import { ActionEditor } from '../../components/ActionEditor'
 
@@ -11,7 +17,12 @@ interface EnvActionsDrawerProps {
   onSave: (actions: EnvAction[]) => Promise<void>
 }
 
-export function EnvActionsDrawer({ open, env, onClose, onSave }: EnvActionsDrawerProps): React.ReactElement {
+export function EnvActionsDrawer({
+  open,
+  env,
+  onClose,
+  onSave
+}: EnvActionsDrawerProps): React.ReactElement {
   const { modal, message } = App.useApp()
   const { token } = theme.useToken()
   const [editing, setEditing] = useState<EnvAction | null>(null)

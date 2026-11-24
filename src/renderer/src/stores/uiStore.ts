@@ -24,7 +24,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     const current = { page: get().page, envId: get().selectedEnvId }
     set({
       page,
-      selectedEnvId: page === 'envs' ? envId ?? get().selectedEnvId : get().selectedEnvId,
+      selectedEnvId: page === 'envs' ? (envId ?? get().selectedEnvId) : get().selectedEnvId,
       history: [...get().history, current].slice(-20)
     })
   },

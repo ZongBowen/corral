@@ -50,11 +50,14 @@ export function resolveCommandVariables(
     if (Object.prototype.hasOwnProperty.call(vars, key)) return vars[key]
     return match
   })
-  const singleQuoted = findSingleQuotedVars(command).filter(
-    (key) => Object.prototype.hasOwnProperty.call(runtimeVars, key)
+  const singleQuoted = findSingleQuotedVars(command).filter((key) =>
+    Object.prototype.hasOwnProperty.call(runtimeVars, key)
   )
   if (singleQuoted.length > 0) {
-    throw new AppError('config', '运行时变量不能使用单引号，请改用双引号：' + singleQuoted.join('、'))
+    throw new AppError(
+      'config',
+      '运行时变量不能使用单引号，请改用双引号：' + singleQuoted.join('、')
+    )
   }
   return { preview, command, missing }
 }
@@ -124,8 +127,7 @@ export function buildExecScript(command: string, variables: Record<string, strin
     return key + '=' + shellQuote(value)
   })
   const variablePrefix = assignments.length > 0 ? assignments.join('; ') + '; ' : ''
-  const payload =
-    variablePrefix + "printf '\\036CORRAL_PID:%s\\036\\n' \"$$\" >&2; " + command
+  const payload = variablePrefix + 'printf \'\\036CORRAL_PID:%s\\036\\n\' "$$" >&2; ' + command
   return 'bash -lc ' + shellQuote(payload)
 }
 
@@ -138,9 +140,7 @@ export function buildPathCheckScript(entries: PathCheckInput[]): string {
   const lines: string[] = ['set +e']
   for (const entry of entries) {
     const path = shellQuote(entry.path)
-    lines.push(
-      "printf 'CORRAL_PATH:%s:%s:' " + shellQuote(entry.key) + ' ' + path
-    )
+    lines.push("printf 'CORRAL_PATH:%s:%s:' " + shellQuote(entry.key) + ' ' + path)
     lines.push('if [ -d ' + path + " ]; then printf 'DIR_OK:'; else printf 'DIR_MISSING:'; fi")
     lines.push('if [ -w ' + path + " ]; then echo 'WRITE_OK'; else echo 'READONLY'; fi")
   }

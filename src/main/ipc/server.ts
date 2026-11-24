@@ -127,7 +127,10 @@ export function registerServerIpc(ctx: AppContext): void {
   })
 }
 
-async function summarize(ctx: AppContext, server: import('@shared/types').Server): Promise<ServerSummary> {
+async function summarize(
+  ctx: AppContext,
+  server: import('@shared/types').Server
+): Promise<ServerSummary> {
   return {
     ...server,
     hasPassword: ctx.vault.has(server.id),

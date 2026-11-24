@@ -115,9 +115,10 @@ export class RunManager {
     const vars = buildVars(env)
     this.validateUploads(action, uploads, uploadMode, manualUploadFiles)
     const plan = await buildUploadPlan(uploads, vars)
-    const uploadVariables = uploadMode === 'skip'
-      ? buildManualUploadVariables(action, vars, manualUploadFiles)
-      : buildUploadVariables(action, plan)
+    const uploadVariables =
+      uploadMode === 'skip'
+        ? buildManualUploadVariables(action, vars, manualUploadFiles)
+        : buildUploadVariables(action, plan)
     const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
     if (resolved.missing.length > 0) {
       throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
@@ -125,7 +126,8 @@ export class RunManager {
     const items: RunPrecheckItem[] = plan.items.map((item) => ({
       localPath: item.item.localPath,
       kind: item.item.kind,
-      targetPath: item.item.kind === 'file' ? item.files[0]?.targetPath ?? item.targetDir : item.targetDir,
+      targetPath:
+        item.item.kind === 'file' ? (item.files[0]?.targetPath ?? item.targetDir) : item.targetDir,
       exists: !plan.missing.includes(item.item.localPath),
       bytes: item.totalBytes,
       fileCount: item.files.length
@@ -163,9 +165,10 @@ export class RunManager {
     if (uploadPlan.missing.length > 0) {
       throw new AppError('upload', '本地文件不存在：' + uploadPlan.missing.join('、'))
     }
-    const uploadVariables = uploadMode === 'skip'
-      ? buildManualUploadVariables(action, vars, manualUploadFiles)
-      : buildUploadVariables(action, uploadPlan)
+    const uploadVariables =
+      uploadMode === 'skip'
+        ? buildManualUploadVariables(action, vars, manualUploadFiles)
+        : buildUploadVariables(action, uploadPlan)
     const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
     if (resolved.missing.length > 0) {
       throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
@@ -285,7 +288,11 @@ export class RunManager {
         const started = new Date(run.startedAt).getTime()
         if (from !== null && started < from) return false
         if (to !== null && started > to) return false
-        if (keyword && !run.actionName.toLowerCase().includes(keyword) && !run.envName.toLowerCase().includes(keyword)) {
+        if (
+          keyword &&
+          !run.actionName.toLowerCase().includes(keyword) &&
+          !run.envName.toLowerCase().includes(keyword)
+        ) {
           return false
         }
         return true
@@ -371,11 +378,10 @@ export class RunManager {
     if (!ctx.client) return
     const entries = ctx.env.paths.map((entry) => ({ key: entry.key, path: entry.path }))
     const script = buildPathCheckScript(entries)
-    const result = await this.deps.ssh.execCapture(
-      ctx.client,
-      'bash -lc ' + shellQuote(script),
-      { timeoutMs: 15_000, encoding: settings.outputEncoding }
-    )
+    const result = await this.deps.ssh.execCapture(ctx.client, 'bash -lc ' + shellQuote(script), {
+      timeoutMs: 15_000,
+      encoding: settings.outputEncoding
+    })
     const checks = parsePathCheckOutput(result.stdout)
     const bad = entries
       .map((entry) => checks.find((item) => item.key === entry.key))
@@ -415,8 +421,8 @@ export class RunManager {
           ...progress
         })
       },
-      onSystem: (text) => this.system(ctx, text),
-      })
+      onSystem: (text) => this.system(ctx, text)
+    })
     ctx.run.uploadStats = stats
     try {
       sftp.end()
@@ -546,9 +552,12 @@ export class RunManager {
       return
     }
     const appError =
-      error instanceof AppError ? error : new AppError('unknown', error instanceof Error ? error.message : String(error))
+      error instanceof AppError
+        ? error
+        : new AppError('unknown', error instanceof Error ? error.message : String(error))
     this.system(ctx, '执行失败：' + appError.message)
-    const kind = appError.code === 'canceled' || appError.code === 'timeout' ? 'unknown' : appError.code
+    const kind =
+      appError.code === 'canceled' || appError.code === 'timeout' ? 'unknown' : appError.code
     this.setStatus(ctx, 'failed', {
       errorKind: kind === 'internal' ? 'unknown' : (kind as Run['errorKind']),
       errorMessage: appError.message
@@ -647,7 +656,8 @@ export class RunManager {
       for (const manual of manualUploadFiles) {
         const rule = action.uploadRules.find((item) => item.id === manual.ruleId)
         if (!rule?.variableKey) throw new AppError('config', '手工文件项未关联有效的命令变量规则')
-        if (manualRuleIds.has(rule.id)) throw new AppError('config', '同一上传规则不能重复录入文件名')
+        if (manualRuleIds.has(rule.id))
+          throw new AppError('config', '同一上传规则不能重复录入文件名')
         assertManualUploadFileName(manual.fileName)
         manualRuleIds.add(rule.id)
       }
@@ -655,8 +665,10 @@ export class RunManager {
       const commandVariables = extractVariables(action.command)
       const missing = action.uploadRules.filter((rule) => {
         if (!rule.variableKey || manualRuleIds.has(rule.id)) return false
-        return commandVariables.includes(rule.variableKey + 'Name') ||
+        return (
+          commandVariables.includes(rule.variableKey + 'Name') ||
           commandVariables.includes(rule.variableKey + 'Path')
+        )
       })
       if (missing.length > 0) {
         const names = missing

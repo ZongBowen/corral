@@ -37,10 +37,7 @@ describe('pruneRunList', () => {
   })
 
   it('drops runs older than the day limit even when count allows', () => {
-    const runs = [
-      run('old1', '2026-08-01T00:00:00.000Z'),
-      run('old2', '2026-08-02T00:00:00.000Z')
-    ]
+    const runs = [run('old1', '2026-08-01T00:00:00.000Z'), run('old2', '2026-08-02T00:00:00.000Z')]
     const result = pruneRunList(runs, { ...settings, logRetentionCount: 10 }, now)
     expect(result.kept).toHaveLength(0)
     expect(result.removed).toHaveLength(2)

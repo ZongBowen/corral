@@ -11,7 +11,7 @@ export function AnsiText({ text }: { text: string }): React.ReactElement {
       .map((item, index) => ({
         key: index,
         content: item.content,
-        color: item.fg ? 'rgb(' + item.fg + ')' : item.fg_truecolor ?? token.colorText,
+        color: item.fg ? 'rgb(' + item.fg + ')' : (item.fg_truecolor ?? token.colorText),
         bold: item.decoration === 'bold' || item.decorations?.includes('bold') === true
       }))
   }, [text, token])

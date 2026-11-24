@@ -12,7 +12,9 @@ import { useAppEvents } from './hooks/useAppEvents'
 
 function useSystemDark(): boolean {
   const [dark, setDark] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false
+    typeof window !== 'undefined'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : false
   )
   useEffect(() => {
     const query = window.matchMedia('(prefers-color-scheme: dark)')
@@ -73,7 +75,9 @@ function AppInner(): React.ReactElement {
   }
   if (!booted) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
         <Spin size="large" description="正在加载…" />
       </div>
     )

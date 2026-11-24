@@ -24,7 +24,10 @@ export interface ReadJsonResult<T> {
   backupPath?: string
 }
 
-export async function readJsonFile<T>(filePath: string, fallback: () => T): Promise<ReadJsonResult<T>> {
+export async function readJsonFile<T>(
+  filePath: string,
+  fallback: () => T
+): Promise<ReadJsonResult<T>> {
   try {
     const raw = await fs.readFile(filePath, 'utf8')
     return { data: JSON.parse(raw) as T, corrupt: false }

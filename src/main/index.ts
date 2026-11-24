@@ -160,7 +160,9 @@ async function requestQuit(win: BrowserWindow | null): Promise<void> {
     defaultId: 0,
     cancelId: 0
   }
-  const result = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options)
+  const result = win
+    ? await dialog.showMessageBox(win, options)
+    : await dialog.showMessageBox(options)
   if (result.response === 1) {
     quitting = true
     await runner.cancelAll()
@@ -258,7 +260,8 @@ if (!gotLock) {
     win.focus()
   })
 
-  app.whenReady()
+  app
+    .whenReady()
     .then(async () => {
       session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
         callback(false)

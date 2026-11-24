@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
-import { App, Alert, Button, Drawer, Form, Input, InputNumber, Select, Space, Switch, Typography } from 'antd'
+import {
+  App,
+  Alert,
+  Button,
+  Drawer,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  Switch,
+  Typography
+} from 'antd'
 import type { ServerInput, ServerSummary, TestResult } from '@shared/types'
 import { serverPathCheckTargetChanged } from '@shared/pathCheck'
 import { unwrap } from '../../api'
@@ -17,7 +29,12 @@ interface FormValues extends ServerInput {
   clearPassword?: boolean
 }
 
-export function ServerDrawer({ open, editing, seed, onClose }: ServerDrawerProps): React.ReactElement {
+export function ServerDrawer({
+  open,
+  editing,
+  seed,
+  onClose
+}: ServerDrawerProps): React.ReactElement {
   const { message, modal, notification } = App.useApp()
   const [form] = Form.useForm<FormValues>()
   const [saving, setSaving] = useState(false)
@@ -47,7 +64,11 @@ export function ServerDrawer({ open, editing, seed, onClose }: ServerDrawerProps
       setTesting(true)
       setStatus(editing?.id ?? 'temp', 'checking')
       let result
-      if (!values.password && editing && (values.host !== editing.host || values.port !== editing.port)) {
+      if (
+        !values.password &&
+        editing &&
+        (values.host !== editing.host || values.port !== editing.port)
+      ) {
         void notification.warning({ message: '地址或端口已修改，请重新输入密码后再测试' })
         return
       }
@@ -94,7 +115,10 @@ export function ServerDrawer({ open, editing, seed, onClose }: ServerDrawerProps
       setSaving(true)
       if (editing) {
         const updated = await unwrap(
-          window.api.server.update({ id: editing.id, input: { ...values, tags: values.tags ?? [] } })
+          window.api.server.update({
+            id: editing.id,
+            input: { ...values, tags: values.tags ?? [] }
+          })
         )
         if (serverPathCheckTargetChanged(editing, updated)) {
           useEnvsStore.getState().clearServerChecks(editing.id)
@@ -142,7 +166,11 @@ export function ServerDrawer({ open, editing, seed, onClose }: ServerDrawerProps
         <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
           <Input placeholder="订单测试机-01" maxLength={64} />
         </Form.Item>
-        <Form.Item name="host" label="主机" rules={[{ required: true, message: '请输入 IP 或域名' }]}>
+        <Form.Item
+          name="host"
+          label="主机"
+          rules={[{ required: true, message: '请输入 IP 或域名' }]}
+        >
           <Input placeholder="10.0.0.12" />
         </Form.Item>
         <Form.Item name="port" label="端口" rules={[{ required: true, message: '请输入端口' }]}>
@@ -157,7 +185,10 @@ export function ServerDrawer({ open, editing, seed, onClose }: ServerDrawerProps
           rules={editing ? [] : [{ required: true, message: '请输入密码' }]}
           extra={editing ? '已保存，留空则不修改' : undefined}
         >
-          <Input.Password placeholder={editing ? '留空则不修改' : 'SSH 密码'} autoComplete="new-password" />
+          <Input.Password
+            placeholder={editing ? '留空则不修改' : 'SSH 密码'}
+            autoComplete="new-password"
+          />
         </Form.Item>
         {editing ? (
           <Form.Item name="clearPassword" label="清除已保存密码" valuePropName="checked">

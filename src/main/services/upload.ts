@@ -54,7 +54,12 @@ export class Uploader {
           fileIndex += 1
           const tempPath = joinRemote(
             item.targetDir,
-            '.corral-tmp-' + options.runId.slice(0, 8) + '-' + String(sequence) + '-' + basename(file.rel)
+            '.corral-tmp-' +
+              options.runId.slice(0, 8) +
+              '-' +
+              String(sequence) +
+              '-' +
+              basename(file.rel)
           )
           sequence += 1
           tempPaths.push(tempPath)
@@ -108,7 +113,9 @@ export class Uploader {
       }
       if (error instanceof AppError) throw error
       const message = errorMessage(error)
-      if (/econnreset|timed out|timeout|channel closed|connection lost|socket hang up/i.test(message)) {
+      if (
+        /econnreset|timed out|timeout|channel closed|connection lost|socket hang up/i.test(message)
+      ) {
         throw new AppError('network', '上传连接中断：' + message)
       }
       throw new AppError('upload', '上传失败：' + message)
@@ -157,7 +164,12 @@ async function fastPut(
       options.signal.removeEventListener('abort', abortHandler)
       if (error) {
         if (idle) {
-          reject(new AppError('timeout', '上传空闲超时（' + String(Math.round(options.idleTimeoutMs / 1000)) + 's 无进度）'))
+          reject(
+            new AppError(
+              'timeout',
+              '上传空闲超时（' + String(Math.round(options.idleTimeoutMs / 1000)) + 's 无进度）'
+            )
+          )
         } else if (aborted || options.signal.aborted) {
           reject(new AppError('canceled', '上传已取消'))
         } else {
@@ -254,13 +266,14 @@ async function replaceFile(
   ].join('\n')
 
   const result = await execScript(client, script)
-  const backup = result.stdout
-    .split(/\r?\n/)
-    .find((line) => line.startsWith('CORRAL_BAK:'))
+  const backup = result.stdout.split(/\r?\n/).find((line) => line.startsWith('CORRAL_BAK:'))
   return backup ? backup.slice('CORRAL_BAK:'.length) : null
 }
 
-async function execScript(client: Client, script: string): Promise<{ stdout: string; stderr: string }> {
+async function execScript(
+  client: Client,
+  script: string
+): Promise<{ stdout: string; stderr: string }> {
   return await new Promise((resolve, reject) => {
     client.exec('bash -lc ' + shellQuote(script), { pty: false }, (error, stream) => {
       if (error) {
@@ -274,7 +287,13 @@ async function execScript(client: Client, script: string): Promise<{ stdout: str
       stream.on('close', (code: number | null) => {
         if (code !== 0) {
           reject(
-            new AppError('upload', '远端替换失败（退出码 ' + String(code) + '）：' + Buffer.concat(err).toString('utf8').trim())
+            new AppError(
+              'upload',
+              '远端替换失败（退出码 ' +
+                String(code) +
+                '）：' +
+                Buffer.concat(err).toString('utf8').trim()
+            )
           )
           return
         }

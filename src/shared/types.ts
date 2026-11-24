@@ -282,8 +282,7 @@ export interface BootState {
 }
 
 export type IpcResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: { code: string; message: string } }
+  { ok: true; data: T } | { ok: false; error: { code: string; message: string } }
 
 export interface ServerInput {
   name: string

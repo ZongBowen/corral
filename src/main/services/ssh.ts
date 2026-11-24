@@ -101,7 +101,11 @@ export class SshService {
           rejectWith(
             new AppError(
               'hostkey',
-              '主机密钥与记录不一致（旧 ' + known.fingerprint + '，新 ' + captured.fingerprint + '），已阻止连接'
+              '主机密钥与记录不一致（旧 ' +
+                known.fingerprint +
+                '，新 ' +
+                captured.fingerprint +
+                '），已阻止连接'
             )
           )
           return
@@ -116,7 +120,11 @@ export class SshService {
           rejectWith(
             new AppError(
               'hostkey',
-              '主机密钥与记录不一致（旧 ' + known.fingerprint + '，新 ' + captured.fingerprint + '），已阻止连接'
+              '主机密钥与记录不一致（旧 ' +
+                known.fingerprint +
+                '，新 ' +
+                captured.fingerprint +
+                '），已阻止连接'
             )
           )
           return
@@ -257,7 +265,9 @@ export class SshService {
         'echo "UPTIME=$(uptime -p 2>/dev/null || uptime)"',
         'echo "USER=$(whoami)"'
       ].join('\n')
-      const result = await this.execCapture(client, 'bash -lc ' + quote(script), { timeoutMs: 8_000 })
+      const result = await this.execCapture(client, 'bash -lc ' + quote(script), {
+        timeoutMs: 8_000
+      })
       const fields = parseKeyValue(result.stdout)
       return {
         ok: true,
@@ -270,7 +280,10 @@ export class SshService {
         username: fields.USER
       }
     } catch (error) {
-      const classified = error instanceof AppError ? { kind: error.code, message: error.message } : classifySshError(error)
+      const classified =
+        error instanceof AppError
+          ? { kind: error.code, message: error.message }
+          : classifySshError(error)
       return {
         ok: false,
         durationMs: Date.now() - started,

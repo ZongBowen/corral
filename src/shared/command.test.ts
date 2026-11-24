@@ -60,11 +60,9 @@ describe('resolveCommandVariables', () => {
   })
 
   it('rejects runtime variables inside single quotes', () => {
-    expect(() => resolveCommandVariables(
-      "echo '${packageName}'",
-      {},
-      { packageName: 'app.zip' }
-    )).toThrow('运行时变量不能使用单引号')
+    expect(() =>
+      resolveCommandVariables("echo '${packageName}'", {}, { packageName: 'app.zip' })
+    ).toThrow('运行时变量不能使用单引号')
   })
 })
 
@@ -79,7 +77,7 @@ describe('buildExecScript', () => {
     const script = buildExecScript('echo hi')
     expect(script.startsWith('bash -lc ')).toBe(true)
     expect(script).toContain('CORRAL_PID')
-    expect(script).toContain("echo hi")
+    expect(script).toContain('echo hi')
     expect(script).toContain("'")
   })
 
@@ -87,8 +85,10 @@ describe('buildExecScript', () => {
     const value = "/opt/app/a '$(touch /tmp/bad).zip"
     const command = 'unzip "${packagePath}"'
     const payload =
-      'packagePath=' + shellQuote(value) +
-      "; printf '\\036CORRAL_PID:%s\\036\\n' \"$$\" >&2; " + command
+      'packagePath=' +
+      shellQuote(value) +
+      '; printf \'\\036CORRAL_PID:%s\\036\\n\' "$$" >&2; ' +
+      command
     expect(buildExecScript(command, { packagePath: value })).toBe('bash -lc ' + shellQuote(payload))
   })
 

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { App, Badge, Button, Card, Empty, Space, Tag, Typography, theme } from 'antd'
-import { DeleteOutlined, EditOutlined, SafetyCertificateOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  EditOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  SyncOutlined
+} from '@ant-design/icons'
 import type {
   DevEnv,
   EnvAction,
@@ -21,14 +27,23 @@ import { useRunStreamStore } from '../../stores/runStreamStore'
 import { unwrap } from '../../api'
 import { formatDateTime } from '../../utils/format'
 
-const PATH_STATUS: Record<PathCheck['status'], { badge: 'success' | 'warning' | 'error' | 'default'; text: string }> = {
+const PATH_STATUS: Record<
+  PathCheck['status'],
+  { badge: 'success' | 'warning' | 'error' | 'default'; text: string }
+> = {
   ok: { badge: 'success', text: '存在且可写' },
   readonly: { badge: 'warning', text: '只读' },
   missing: { badge: 'error', text: '不存在' },
   unknown: { badge: 'default', text: '未校验' }
 }
 
-export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }): React.ReactElement {
+export function EnvDetail({
+  env,
+  onEdit
+}: {
+  env: DevEnv
+  onEdit: () => void
+}): React.ReactElement {
   const { token } = theme.useToken()
   const { message, modal, notification } = App.useApp()
   const servers = useServersStore((state) => state.servers)
@@ -56,13 +71,15 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
 
   const stream = useRunStreamStore((state) => {
     const runId = state.activeByEnv[env.id]
-    return runId ? state.streams[runId] ?? null : null
+    return runId ? (state.streams[runId] ?? null) : null
   })
   const isRunning = useRunStreamStore((state) => {
     const runId = state.activeByEnv[env.id]
     if (!runId) return false
     const item = state.streams[runId]
-    return Boolean(item && ['queued', 'connecting', 'validating', 'uploading', 'running'].includes(item.status))
+    return Boolean(
+      item && ['queued', 'connecting', 'validating', 'uploading', 'running'].includes(item.status)
+    )
   })
 
   useEffect(() => {
@@ -168,7 +185,13 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
 
   const requestRun = async (action: EnvAction): Promise<void> => {
     if (action.uploadRules.length > 0) {
-      setPending({ action, precheck: null, uploads: [], uploadMode: 'upload', manualUploadFiles: [] })
+      setPending({
+        action,
+        precheck: null,
+        uploads: [],
+        uploadMode: 'upload',
+        manualUploadFiles: []
+      })
       return
     }
     try {
@@ -256,7 +279,9 @@ export function EnvDetail({ env, onEdit }: { env: DevEnv; onEdit: () => void }):
           </Space>
           <div style={{ marginTop: 4 }}>
             <Typography.Text type="secondary">
-              {server ? server.name + ' · ' + server.host + ':' + String(server.port) : '服务器已删除'}
+              {server
+                ? server.name + ' · ' + server.host + ':' + String(server.port)
+                : '服务器已删除'}
               {serverInfo ? ' · ' + serverInfo : ''}
             </Typography.Text>
           </div>

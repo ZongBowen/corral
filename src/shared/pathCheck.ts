@@ -11,7 +11,8 @@ export function envPathCheckTargetChanged(
   previous: EnvPathCheckTarget,
   next: EnvPathCheckTarget
 ): boolean {
-  if (previous.serverId !== next.serverId || previous.paths.length !== next.paths.length) return true
+  if (previous.serverId !== next.serverId || previous.paths.length !== next.paths.length)
+    return true
   const nextPaths = new Map(next.paths.map((entry) => [entry.key, entry.path]))
   return previous.paths.some((entry) => nextPaths.get(entry.key) !== entry.path)
 }

@@ -42,7 +42,11 @@ export function classifySshError(error: unknown): { kind: RunErrorKind; message:
   ) {
     return { kind: 'auth', message: '账号或密码错误，请重新输入密码并确认账号未被锁定' }
   }
-  if (lower.includes('host key') || lower.includes('hostkey') || lower.includes('verification failed')) {
+  if (
+    lower.includes('host key') ||
+    lower.includes('hostkey') ||
+    lower.includes('verification failed')
+  ) {
     return { kind: 'hostkey', message: '主机密钥与记录不一致，存在中间人风险，请谨慎处理' }
   }
   if (

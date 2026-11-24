@@ -15,7 +15,12 @@ import {
 import type { SelectProps } from 'antd'
 import type { DevEnv, EnvAction, UploadRule } from '@shared/types'
 import { newId } from '@shared/id'
-import { extractVariables, findSingleQuotedVars, findUnquotedVars, resolveVariables } from '@shared/command'
+import {
+  extractVariables,
+  findSingleQuotedVars,
+  findUnquotedVars,
+  resolveVariables
+} from '@shared/command'
 import {
   COMMAND_SNIPPETS,
   buildSnippetOptions,
@@ -42,7 +47,13 @@ interface ActionForm {
   danger: boolean
 }
 
-export function ActionEditor({ open, env, action, onClose, onSave }: ActionEditorProps): React.ReactElement {
+export function ActionEditor({
+  open,
+  env,
+  action,
+  onClose,
+  onSave
+}: ActionEditorProps): React.ReactElement {
   const { message, modal } = App.useApp()
   const [form] = Form.useForm<ActionForm>()
   const [uploadRules, setUploadRules] = useState<UploadRule[]>([])
@@ -60,22 +71,31 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
   }, [env])
 
   const uploadVariableNames = useMemo(
-    () => uploadRules.flatMap((rule) => {
-      const key = rule.variableKey?.trim()
-      return key ? [key + 'Name', key + 'Path'] : []
-    }),
+    () =>
+      uploadRules.flatMap((rule) => {
+        const key = rule.variableKey?.trim()
+        return key ? [key + 'Name', key + 'Path'] : []
+      }),
     [uploadRules]
   )
-  const variableOptionGroups = useMemo<SelectProps['options']>(() => [
-    { label: '环境变量', options: Object.keys(vars).map((key) => ({ value: key, label: key })) },
-    ...(uploadVariableNames.length > 0
-      ? [{
-          label: '上传变量（执行时生成）',
-          options: uploadVariableNames.map((key) => ({ value: key, label: key }))
-        }]
-      : [])
-  ], [vars, uploadVariableNames])
-  const snippetOptionGroups = useMemo<SelectProps['options']>(() => buildSnippetOptions(vars), [vars])
+  const variableOptionGroups = useMemo<SelectProps['options']>(
+    () => [
+      { label: '环境变量', options: Object.keys(vars).map((key) => ({ value: key, label: key })) },
+      ...(uploadVariableNames.length > 0
+        ? [
+            {
+              label: '上传变量（执行时生成）',
+              options: uploadVariableNames.map((key) => ({ value: key, label: key }))
+            }
+          ]
+        : [])
+    ],
+    [vars, uploadVariableNames]
+  )
+  const snippetOptionGroups = useMemo<SelectProps['options']>(
+    () => buildSnippetOptions(vars),
+    [vars]
+  )
 
   useEffect(() => {
     openRef.current = open
@@ -98,7 +118,9 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
     (key) => !Object.prototype.hasOwnProperty.call(vars, key) && !uploadVariableNames.includes(key)
   )
   const unquoted = findUnquotedVars(command)
-  const singleQuotedUploadVars = findSingleQuotedVars(command).filter((key) => uploadVariableNames.includes(key))
+  const singleQuotedUploadVars = findSingleQuotedVars(command).filter((key) =>
+    uploadVariableNames.includes(key)
+  )
 
   const insertVariable = (key: string): void => {
     const current = form.getFieldValue('command') ?? ''
@@ -147,7 +169,9 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
     try {
       const values = await form.validateFields()
       if (singleQuotedUploadVars.length > 0) {
-        void message.error('上传变量不能使用单引号，请改用双引号：' + singleQuotedUploadVars.join('、'))
+        void message.error(
+          '上传变量不能使用单引号，请改用双引号：' + singleQuotedUploadVars.join('、')
+        )
         return
       }
       const normalizedUploadRules = uploadRules.map((rule) => ({
@@ -345,7 +369,10 @@ export function ActionEditor({ open, env, action, onClose, onSave }: ActionEdito
             type="error"
             showIcon
             style={{ marginBottom: 12 }}
-            title={'上传变量在 shell 中需使用双引号，单引号不会展开：' + singleQuotedUploadVars.join('、')}
+            title={
+              '上传变量在 shell 中需使用双引号，单引号不会展开：' +
+              singleQuotedUploadVars.join('、')
+            }
           />
         ) : null}
         {unquoted.length > 0 ? (

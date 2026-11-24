@@ -35,7 +35,10 @@ export const pathEntrySchema = z.object({
     .min(1, '路径不能为空')
     .max(4096)
     .refine((value) => value.startsWith('/'), '路径必须是远程绝对路径（以 / 开头）')
-    .refine((value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'), '路径包含非法字符'),
+    .refine(
+      (value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'),
+      '路径包含非法字符'
+    ),
   required: z.boolean().optional()
 })
 
@@ -46,7 +49,10 @@ export const uploadRuleSchema = z.object({
     .trim()
     .min(1, '目标目录不能为空')
     .max(4096)
-    .refine((value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'), '目标目录包含非法字符'),
+    .refine(
+      (value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'),
+      '目标目录包含非法字符'
+    ),
   conflict: z.enum(['backup', 'overwrite']),
   variableKey: z
     .string()
@@ -78,7 +84,10 @@ export const uploadItemSchema = z.object({
     .trim()
     .min(1, '目标目录不能为空')
     .max(4096)
-    .refine((value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'), '目标目录包含非法字符'),
+    .refine(
+      (value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'),
+      '目标目录包含非法字符'
+    ),
   conflict: z.enum(['backup', 'overwrite'])
 })
 

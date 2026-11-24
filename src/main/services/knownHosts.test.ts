@@ -16,7 +16,9 @@ afterEach(async () => {
 
 describe('KnownHostsService', () => {
   it('computes stable sha256 fingerprints', () => {
-    expect(fingerprint(Buffer.from('abc'))).toBe('SHA256:ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0')
+    expect(fingerprint(Buffer.from('abc'))).toBe(
+      'SHA256:ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0'
+    )
   })
 
   it('trusts, reads and removes records', async () => {

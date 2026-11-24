@@ -20,9 +20,7 @@ interface FormValues {
   description?: string
 }
 
-const DEFAULT_PATHS: PathEntry[] = [
-  { key: 'workDir', label: '工作目录', path: '', required: true }
-]
+const DEFAULT_PATHS: PathEntry[] = [{ key: 'workDir', label: '工作目录', path: '', required: true }]
 
 export function EnvDrawer({ open, env, onClose }: EnvDrawerProps): React.ReactElement {
   const { message } = App.useApp()
@@ -41,7 +39,11 @@ export function EnvDrawer({ open, env, onClose }: EnvDrawerProps): React.ReactEl
       serverId: env?.serverId ?? servers[0]?.id,
       description: env?.description ?? ''
     })
-    setPaths(env?.paths?.length ? env.paths.map((entry) => ({ ...entry })) : DEFAULT_PATHS.map((entry) => ({ ...entry })))
+    setPaths(
+      env?.paths?.length
+        ? env.paths.map((entry) => ({ ...entry }))
+        : DEFAULT_PATHS.map((entry) => ({ ...entry }))
+    )
     setTemplateKey('docker')
   }, [open, env, form, servers])
 
@@ -115,10 +117,18 @@ export function EnvDrawer({ open, env, onClose }: EnvDrawerProps): React.ReactEl
       }
     >
       <Form form={form} layout="vertical">
-        <Form.Item name="name" label="环境名称" rules={[{ required: true, message: '请输入环境名称' }]}>
+        <Form.Item
+          name="name"
+          label="环境名称"
+          rules={[{ required: true, message: '请输入环境名称' }]}
+        >
           <Input placeholder="订单服务-dev" maxLength={64} />
         </Form.Item>
-        <Form.Item name="serverId" label="所属服务器" rules={[{ required: true, message: '请选择服务器' }]}>
+        <Form.Item
+          name="serverId"
+          label="所属服务器"
+          rules={[{ required: true, message: '请选择服务器' }]}
+        >
           <Select
             placeholder="选择服务器"
             options={servers.map((server) => ({

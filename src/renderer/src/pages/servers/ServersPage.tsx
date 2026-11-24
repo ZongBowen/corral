@@ -1,16 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import {
-  App,
-  Button,
-  Dropdown,
-  Empty,
-  Input,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Typography
-} from 'antd'
+import { App, Button, Dropdown, Empty, Input, Select, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { EllipsisOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import type { ServerInput, ServerSummary, TestResult } from '@shared/types'
@@ -81,7 +70,8 @@ export function ServersPage(): React.ReactElement {
       let paginationHeight = 0
       if (pagination && pagination.getClientRects().length > 0) {
         const { marginTop, marginBottom } = window.getComputedStyle(pagination)
-        paginationHeight = pagination.offsetHeight + parseFloat(marginTop) + parseFloat(marginBottom)
+        paginationHeight =
+          pagination.offsetHeight + parseFloat(marginTop) + parseFloat(marginBottom)
       }
       const nextHeight = Math.max(
         0,
@@ -134,8 +124,11 @@ export function ServersPage(): React.ReactElement {
           message: server.name + ' 连接成功',
           description:
             (result.os ?? 'Linux') +
-            ' · 内核 ' + (result.kernel ?? '—') +
-            ' · ' + String(result.durationMs) + 'ms'
+            ' · 内核 ' +
+            (result.kernel ?? '—') +
+            ' · ' +
+            String(result.durationMs) +
+            'ms'
         })
       } else {
         notification.error({

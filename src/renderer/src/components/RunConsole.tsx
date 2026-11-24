@@ -7,7 +7,7 @@ import { LogPanel } from './LogPanel'
 export function RunConsole({ env }: { env: DevEnv }): React.ReactElement {
   const stream = useRunStreamStore((state) => {
     const runId = state.activeByEnv[env.id]
-    return runId ? state.streams[runId] ?? null : null
+    return runId ? (state.streams[runId] ?? null) : null
   })
   const { modal, message } = App.useApp()
 

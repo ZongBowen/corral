@@ -1,5 +1,10 @@
 import { Layout, Menu, theme, Typography } from 'antd'
-import { AppstoreOutlined, CloudServerOutlined, HistoryOutlined, SettingOutlined } from '@ant-design/icons'
+import {
+  AppstoreOutlined,
+  CloudServerOutlined,
+  HistoryOutlined,
+  SettingOutlined
+} from '@ant-design/icons'
 import { useUiStore, type Page } from '../stores/uiStore'
 import { ServersPage } from '../pages/servers/ServersPage'
 import { EnvsPage } from '../pages/envs/EnvsPage'
@@ -20,7 +25,11 @@ export function AppLayout(): React.ReactElement {
 
   return (
     <Layout style={{ height: '100vh' }}>
-      <Layout.Sider width={200} theme="light" style={{ borderRight: '1px solid ' + token.colorBorderSecondary }}>
+      <Layout.Sider
+        width={200}
+        theme="light"
+        style={{ borderRight: '1px solid ' + token.colorBorderSecondary }}
+      >
         <div style={{ padding: '20px 16px 12px' }}>
           <Typography.Text strong style={{ fontSize: 18 }}>
             Corral

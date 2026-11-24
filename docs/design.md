@@ -1,14 +1,14 @@
 # Corral 研发服务器管理工具 · 设计文档
 
-| 项目 | 内容 |
-| --- | --- |
-| 文档版本 | v0.2（草案） |
-| 更新日期 | 2026-10-29 |
-| 应用代号 | Corral |
-| 版本变更 | v0.2：新增操作级预上传；Ant Design 升级为 6.6.8+ |
-| 技术栈 | Electron + React 19 + TypeScript + Ant Design 6.6.8+ |
-| 目标平台 | Windows 10/11 x64 |
-| 状态 | 待评审 |
+| 项目     | 内容                                                 |
+| -------- | ---------------------------------------------------- |
+| 文档版本 | v0.2（草案）                                         |
+| 更新日期 | 2026-10-29                                           |
+| 应用代号 | Corral                                               |
+| 版本变更 | v0.2：新增操作级预上传；Ant Design 升级为 6.6.8+     |
+| 技术栈   | Electron + React 19 + TypeScript + Ant Design 6.6.8+ |
+| 目标平台 | Windows 10/11 x64                                    |
+| 状态     | 待评审                                               |
 
 ---
 
@@ -26,19 +26,19 @@
 
 ### 1.1 已确认的产品决策
 
-| 议题 | 结论 |
-| --- | --- |
-| 凭据存储 | 使用 Electron `safeStorage` 加密后存入本地文件 |
-| 操作配置 | 每个环境维护**自定义操作列表**，内置更新/启动/关闭模板 |
-| 执行呈现 | 应用内**流式日志面板**，仅展示执行输出与上传进度 |
-| 认证方式 | 一期仅支持**密码认证** |
-| 目标平台 | 一期仅 Windows |
-| 批量执行 | 一期仅单环境执行，架构预留并发能力 |
-| 目录配置 | **多目录（具名）字段 + 路径存在性/可写性校验** |
-| 在线状态 | **手动/懒检测**，不做后台轮询 |
+| 议题     | 结论                                                                                                      |
+| -------- | --------------------------------------------------------------------------------------------------------- |
+| 凭据存储 | 使用 Electron `safeStorage` 加密后存入本地文件                                                            |
+| 操作配置 | 每个环境维护**自定义操作列表**，内置更新/启动/关闭模板                                                    |
+| 执行呈现 | 应用内**流式日志面板**，仅展示执行输出与上传进度                                                          |
+| 认证方式 | 一期仅支持**密码认证**                                                                                    |
+| 目标平台 | 一期仅 Windows                                                                                            |
+| 批量执行 | 一期仅单环境执行，架构预留并发能力                                                                        |
+| 目录配置 | **多目录（具名）字段 + 路径存在性/可写性校验**                                                            |
+| 在线状态 | **手动/懒检测**，不做后台轮询                                                                             |
 | 文件上传 | **操作级预上传**：操作仅配置远程目标规则，每次执行时选择本地文件/目录；文件已手工准备时可显式跳过本次上传 |
-| 上传对象 | **文件 + 目录（递归）**，目标为远程绝对目录（通常引用环境具名目录） |
-| 冲突处理 | 覆盖前自动备份为 `.bak-<时间戳>`，上传失败立即中止本次执行 |
+| 上传对象 | **文件 + 目录（递归）**，目标为远程绝对目录（通常引用环境具名目录）                                       |
+| 冲突处理 | 覆盖前自动备份为 `.bak-<时间戳>`，上传失败立即中止本次执行                                                |
 
 ---
 
@@ -72,15 +72,15 @@
 
 ## 3. 术语
 
-| 术语 | 含义 | 代码中的实体 |
-| --- | --- | --- |
-| 服务器 | 一台可通过 SSH 访问的 Linux 虚拟机，包含地址与账号信息 | `Server` |
-| 开发环境 | 部署在某台服务器上的软件运行实例，包含目录配置与操作集合 | `DevEnv` |
-| 操作 | 一段可在环境上执行的 shell 命令，如「更新」「启动」「关闭」 | `EnvAction` |
-| 执行 | 一次操作的具体运行实例，含日志、退出码、耗时 | `Run` |
-| 目录项 | 环境中配置的具名远程路径，如 `workDir` | `PathEntry` |
-| 上传规则 | 操作中稳定保存的远程目标目录与冲突策略 | `UploadRule` |
-| 上传项 | 一次执行中实际选择的本地文件或目录及其目标 | `UploadItem` |
+| 术语     | 含义                                                        | 代码中的实体 |
+| -------- | ----------------------------------------------------------- | ------------ |
+| 服务器   | 一台可通过 SSH 访问的 Linux 虚拟机，包含地址与账号信息      | `Server`     |
+| 开发环境 | 部署在某台服务器上的软件运行实例，包含目录配置与操作集合    | `DevEnv`     |
+| 操作     | 一段可在环境上执行的 shell 命令，如「更新」「启动」「关闭」 | `EnvAction`  |
+| 执行     | 一次操作的具体运行实例，含日志、退出码、耗时                | `Run`        |
+| 目录项   | 环境中配置的具名远程路径，如 `workDir`                      | `PathEntry`  |
+| 上传规则 | 操作中稳定保存的远程目标目录与冲突策略                      | `UploadRule` |
+| 上传项   | 一次执行中实际选择的本地文件或目录及其目标                  | `UploadItem` |
 
 ---
 
@@ -116,18 +116,18 @@
 
 ### 5.1 技术选型
 
-| 层 | 选型 | 说明 |
-| --- | --- | --- |
-| 桌面框架 | Electron（最新稳定版） | 主进程持有 Node 能力，渲染进程纯 Web |
-| 构建 | electron-vite + Vite | 主/预加载/渲染三端统一构建，HMR 体验好 |
-| UI | React 19 + TypeScript + Ant Design 6.6.8+ | 需求指定；`ConfigProvider` 支持明暗主题与中文 locale，`App` 提供 message/notification 上下文 |
-| 状态 | Zustand | 轻量，按领域拆 store，避免 Redux 样板 |
-| 校验 | Zod | 与 TS 类型同源，用于持久化数据与 IPC 入参校验 |
-| SSH / SFTP | ssh2 | 纯 JS，无需编译原生模块；支持密码认证、exec 流、SFTP 传输、host key 校验 |
-| 日志渲染 | 无（`<pre>` + ANSI 解析） | 不引入 PTY；用 `anser` 将 ANSI 转为带颜色的安全 HTML |
-| 时间 | dayjs | antd 已依赖 |
-| 日志文件 | 自研 JSONL 追加写 | 保留 stdout/stderr/系统事件区分，支持历史回放 |
-| 打包 | electron-builder（NSIS） | 生成单文件安装包，按用户安装 |
+| 层         | 选型                                      | 说明                                                                                         |
+| ---------- | ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 桌面框架   | Electron（最新稳定版）                    | 主进程持有 Node 能力，渲染进程纯 Web                                                         |
+| 构建       | electron-vite + Vite                      | 主/预加载/渲染三端统一构建，HMR 体验好                                                       |
+| UI         | React 19 + TypeScript + Ant Design 6.6.8+ | 需求指定；`ConfigProvider` 支持明暗主题与中文 locale，`App` 提供 message/notification 上下文 |
+| 状态       | Zustand                                   | 轻量，按领域拆 store，避免 Redux 样板                                                        |
+| 校验       | Zod                                       | 与 TS 类型同源，用于持久化数据与 IPC 入参校验                                                |
+| SSH / SFTP | ssh2                                      | 纯 JS，无需编译原生模块；支持密码认证、exec 流、SFTP 传输、host key 校验                     |
+| 日志渲染   | 无（`<pre>` + ANSI 解析）                 | 不引入 PTY；用 `anser` 将 ANSI 转为带颜色的安全 HTML                                         |
+| 时间       | dayjs                                     | antd 已依赖                                                                                  |
+| 日志文件   | 自研 JSONL 追加写                         | 保留 stdout/stderr/系统事件区分，支持历史回放                                                |
+| 打包       | electron-builder（NSIS）                  | 生成单文件安装包，按用户安装                                                                 |
 
 **为什么不用 `node-pty` / `xterm.js`**：本工具只做「发起预设命令 + 看输出」，定位上不提供交互式终端，同时避免原生模块编译与打包复杂度。
 
@@ -199,15 +199,15 @@ Renderer                Main                        远端服务器
 
 #### 6.1.1 字段
 
-| 字段 | 必填 | 说明 |
-| --- | --- | --- |
-| 名称 | 是 | 展示名，如「订单测试机-01」，全局唯一性仅做软提示 |
-| 主机 | 是 | IPv4 / 域名；保存时做格式校验，不强制可解析 |
-| 端口 | 是 | 默认 22 |
-| 用户名 | 是 | SSH 账号 |
-| 密码 | 是 | 加密存储；编辑时留空表示不修改 |
-| 描述 | 否 | 多行文本，记录用途、负责人、到期时间等 |
-| 标签 | 否 | 字符串数组，用于筛选，如 `ubuntu`、`kylin`、`test` |
+| 字段   | 必填 | 说明                                               |
+| ------ | ---- | -------------------------------------------------- |
+| 名称   | 是   | 展示名，如「订单测试机-01」，全局唯一性仅做软提示  |
+| 主机   | 是   | IPv4 / 域名；保存时做格式校验，不强制可解析        |
+| 端口   | 是   | 默认 22                                            |
+| 用户名 | 是   | SSH 账号                                           |
+| 密码   | 是   | 加密存储；编辑时留空表示不修改                     |
+| 描述   | 否   | 多行文本，记录用途、负责人、到期时间等             |
+| 标签   | 否   | 字符串数组，用于筛选，如 `ubuntu`、`kylin`、`test` |
 
 > 一期不做「分组树」，用标签 + 搜索满足分类需求，避免过早引入层级模型。
 
@@ -238,13 +238,13 @@ Renderer                Main                        远端服务器
 
 #### 6.2.1 字段
 
-| 字段 | 必填 | 说明 |
-| --- | --- | --- |
-| 名称 | 是 | 如「订单服务-dev」 |
-| 所属服务器 | 是 | 从服务器列表选择 |
-| 描述 | 否 | 版本、端口、负责人等 |
-| 目录项 | 至少 1 项 | 具名路径列表，`workDir` 必填 |
-| 操作列表 | 否 | 可先建环境后补操作 |
+| 字段       | 必填      | 说明                         |
+| ---------- | --------- | ---------------------------- |
+| 名称       | 是        | 如「订单服务-dev」           |
+| 所属服务器 | 是        | 从服务器列表选择             |
+| 描述       | 否        | 版本、端口、负责人等         |
+| 目录项     | 至少 1 项 | 具名路径列表，`workDir` 必填 |
+| 操作列表   | 否        | 可先建环境后补操作           |
 
 #### 6.2.2 目录模型
 
@@ -256,11 +256,11 @@ Renderer                Main                        远端服务器
 
 内置三项（可删除非必填项）：
 
-| key | 默认 label | 必填 |
-| --- | --- | --- |
-| `workDir` | 工作目录 | 是 |
-| `logDir` | 日志目录 | 否 |
-| `configDir` | 配置文件目录 | 否 |
+| key         | 默认 label   | 必填 |
+| ----------- | ------------ | ---- |
+| `workDir`   | 工作目录     | 是   |
+| `logDir`    | 日志目录     | 否   |
+| `configDir` | 配置文件目录 | 否   |
 
 **变量**：命令中通过 `${workDir}`、`${logDir}`、`${configDir}`、`${自定义key}` 引用；另提供 `${envName}`。执行前替换为路径原文，未定义的变量视为错误并阻止执行。
 
@@ -286,14 +286,14 @@ Renderer                Main                        远端服务器
 
 #### 6.3.1 操作字段
 
-| 字段 | 说明 |
-| --- | --- |
-| 名称 | 「更新」「启动」「关闭」或自定义 |
-| 命令 | 多行 shell 脚本，支持变量 |
-| 超时 | 秒，默认继承全局 300s，可单独设置（0 表示不限，需谨慎） |
-| 二次确认 | 默认开启；关闭后点击即执行 |
-| 危险操作 | 标记为危险语义，按钮使用 `color="danger"`，确认文案更醒目（如「关闭」） |
-| 执行前上传 | 远程目标目录、冲突策略与可选命令变量名；本地文件/目录在每次执行时选择 |
+| 字段       | 说明                                                                    |
+| ---------- | ----------------------------------------------------------------------- |
+| 名称       | 「更新」「启动」「关闭」或自定义                                        |
+| 命令       | 多行 shell 脚本，支持变量                                               |
+| 超时       | 秒，默认继承全局 300s，可单独设置（0 表示不限，需谨慎）                 |
+| 二次确认   | 默认开启；关闭后点击即执行                                              |
+| 危险操作   | 标记为危险语义，按钮使用 `color="danger"`，确认文案更醒目（如「关闭」） |
+| 执行前上传 | 远程目标目录、冲突策略与可选命令变量名；本地文件/目录在每次执行时选择   |
 
 - 操作列表支持上移/下移排序，顺序即详情页按钮顺序；
 - 新建环境时可从模板一键生成三条操作；
@@ -307,36 +307,36 @@ Renderer                Main                        远端服务器
 
 **Docker Compose**
 
-| 操作 | 命令 |
-| --- | --- |
+| 操作 | 命令                                                                              |
+| ---- | --------------------------------------------------------------------------------- |
 | 更新 | `cd "${workDir}" && docker compose pull && docker compose up -d --remove-orphans` |
-| 启动 | `cd "${workDir}" && docker compose up -d` |
-| 关闭 | `cd "${workDir}" && docker compose down` |
-| 状态 | `cd "${workDir}" && docker compose ps` |
+| 启动 | `cd "${workDir}" && docker compose up -d`                                         |
+| 关闭 | `cd "${workDir}" && docker compose down`                                          |
+| 状态 | `cd "${workDir}" && docker compose ps`                                            |
 
 **systemd 服务**
 
-| 操作 | 命令 |
-| --- | --- |
+| 操作 | 命令                             |
+| ---- | -------------------------------- |
 | 更新 | `cd "${workDir}" && ./deploy.sh` |
-| 启动 | `systemctl restart my-service` |
-| 关闭 | `systemctl stop my-service` |
+| 启动 | `systemctl restart my-service`   |
+| 关闭 | `systemctl stop my-service`      |
 
 > `systemctl` 通常需要 root 权限。一期不处理 sudo 密码交互，推荐目标机为运维账号配置 `NOPASSWD`，或直接使用具备权限的账号（不推荐 root）。详见 §6.3.2。
 
 **脚本/二进制**
 
-| 操作 | 命令 |
-| --- | --- |
-| 启动 | `cd "${workDir}" || exit 1; nohup ./start.sh > "${logDir}/app.log" 2>&1 < /dev/null & echo $!` |
+| 操作 | 命令                           |
+| ---- | ------------------------------ |
+| 启动 | `cd "${workDir}"               |     | exit 1; nohup ./start.sh > "${logDir}/app.log" 2>&1 < /dev/null & echo $!` |
 | 关闭 | `cd "${workDir}" && ./stop.sh` |
 
 **本地构建产物 + 预上传**
 
-| 操作 | 命令 | 预上传 |
-| --- | --- | --- |
-| 更新 | `cd "${workDir}" && ./restart.sh` | 目标 `${workDir}/lib`（执行时选择 jar，覆盖前备份） |
-| 更新（前端） | `cd "${workDir}" && ./reload.sh` | 目标 `${workDir}/static`（执行时选择目录，内容合并并备份） |
+| 操作         | 命令                              | 预上传                                                     |
+| ------------ | --------------------------------- | ---------------------------------------------------------- |
+| 更新         | `cd "${workDir}" && ./restart.sh` | 目标 `${workDir}/lib`（执行时选择 jar，覆盖前备份）        |
+| 更新（前端） | `cd "${workDir}" && ./reload.sh`  | 目标 `${workDir}/static`（执行时选择目录，内容合并并备份） |
 
 > 上传项的目标目录支持与环境相同的 `${key}` 变量；目录上传将内容合并到目标目录，例如 `dist` 上传到 `${workDir}/static` 后，文件位于 `${workDir}/static/` 下。
 
@@ -420,11 +420,11 @@ queued → connecting → validating → uploading → running → success
 
 ```ts
 interface UploadItem {
-  id: string;
-  kind: 'file' | 'dir';
-  localPath: string;      // 本地绝对路径，来自系统文件对话框
-  targetDir: string;      // 远程绝对路径，支持 ${key} 变量
-  conflict: 'backup' | 'overwrite';
+  id: string
+  kind: 'file' | 'dir'
+  localPath: string // 本地绝对路径，来自系统文件对话框
+  targetDir: string // 远程绝对路径，支持 ${key} 变量
+  conflict: 'backup' | 'overwrite'
 }
 ```
 
@@ -445,10 +445,10 @@ interface UploadItem {
 
 **覆盖与备份**
 
-| 策略 | 行为 |
-| --- | --- |
+| 策略             | 行为                                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
 | `backup`（默认） | 目标存在时 `mv <target> <target>.bak-<yyyyMMdd-HHmmss>`，再 `mv <tmp> <target>`；同一秒重名追加 `-1`、`-2` |
-| `overwrite` | 直接 `mv -f <tmp> <target>`，不保留旧文件 |
+| `overwrite`      | 直接 `mv -f <tmp> <target>`，不保留旧文件                                                                  |
 
 - 目录上传按**文件级合并**：只覆盖同名文件，目标目录中多余的文件保留；
 - 备份路径写入系统日志，便于人工回滚；应用不自动清理备份；
@@ -511,19 +511,19 @@ interface UploadItem {
 
 ### 6.8 设置
 
-| 设置项 | 默认值 | 说明 |
-| --- | --- | --- |
-| 主题 | 跟随系统 | 亮色 / 暗色 / 跟随系统 |
-| 默认命令超时 | 300s | 新操作的默认值 |
-| 执行前校验目录 | 开启 | 关闭后直接执行 |
-| 上传冲突默认策略 | 备份 | 新增上传项时的默认值：备份 / 直接覆盖 |
-| 上传空闲超时 | 60s | 超过该时间无字节进度则终止上传 |
-| 日志保留条数 | 200 | |
-| 日志保留天数 | 30 | |
-| 输出编码 | UTF-8 | 可选 GBK（麒麟/老系统兼容） |
-| 兼容旧 SSH 算法 | 关闭 | 开启后放宽 KEX/主机密钥算法（仅在连接失败且确认服务端过旧时使用） |
-| 数据目录 | 只读展示 | 提供「打开目录」按钮 |
-| 导出配置 | — | 导出 JSON（**不含密码**），用于备份/迁移 |
+| 设置项           | 默认值   | 说明                                                              |
+| ---------------- | -------- | ----------------------------------------------------------------- |
+| 主题             | 跟随系统 | 亮色 / 暗色 / 跟随系统                                            |
+| 默认命令超时     | 300s     | 新操作的默认值                                                    |
+| 执行前校验目录   | 开启     | 关闭后直接执行                                                    |
+| 上传冲突默认策略 | 备份     | 新增上传项时的默认值：备份 / 直接覆盖                             |
+| 上传空闲超时     | 60s      | 超过该时间无字节进度则终止上传                                    |
+| 日志保留条数     | 200      |                                                                   |
+| 日志保留天数     | 30       |                                                                   |
+| 输出编码         | UTF-8    | 可选 GBK（麒麟/老系统兼容）                                       |
+| 兼容旧 SSH 算法  | 关闭     | 开启后放宽 KEX/主机密钥算法（仅在连接失败且确认服务端过旧时使用） |
+| 数据目录         | 只读展示 | 提供「打开目录」按钮                                              |
+| 导出配置         | —        | 导出 JSON（**不含密码**），用于备份/迁移                          |
 
 “导出配置”属于低成本高价值能力，一期提供；导入放到二期。
 
@@ -652,20 +652,20 @@ Corral
 
 核对依据：通过 `antd design.md` 获取的 Ant Design v6 设计语言（CLI 6.6.8，默认亮色主题 `defaultAlgorithm`）。逐项核对结论如下：
 
-| 检查项 | Ant Design 规范 | 本项目落实 | 结论 |
-| --- | --- | --- | --- |
-| 色彩 | 主色 `#1677FF`；success / warning / error / info 表达状态；预设色板仅用于标签与分类 | 使用默认 `colorPrimary`；危险操作 `colorError`；标签使用预设色；不新增品牌色 | 符合 |
-| 字体 | 基准 14px，仅使用 400 / 600 字重；表格头 14/600；代码 13px | 沿用 antd 字体与字重；日志面板使用 13px 等宽字体；标题使用 600，不出现 700+ 或斜体 | 符合 |
-| 间距 | 4px 网格（4/8/12/16/24/32）；控件高度 32px；默认卡片内边距 24px，小卡片 12px | 页面主要区块 12px、次级区块 8px；导航 200px、抽屉 520px、表单单列间距 8/24px 均落在网格上 | 符合 |
-| 圆角 | 控件 6px、容器 8px、标签与浮层 4px；胶囊形仅用于头像/徽标 | 使用默认圆角，不做全局覆盖；不使用胶囊按钮 | 符合 |
-| 层级 | 三层表面：layout / container / elevated；扁平优先，阴影仅用于浮层 | 页面使用 `colorBgLayout`，内容使用 Card；仅 Drawer / Modal / Dropdown 使用阴影 | 符合 |
-| 按钮 | 同一表面只保留一个 primary；危险操作使用 error 语义 | 环境详情以「更新」为 primary，「关闭」为 danger，其余 default；列表页「新增」为唯一 primary | 已落实 |
-| 导航 | Menu 选中项使用 `colorPrimaryBg` + `colorPrimary` 文本 | 直接使用 Menu 默认选中态，不自定义导航配色 | 符合 |
-| 表格 | 表头使用 `surface-container` + title-md；行 hover 高亮，不使用斑马纹 | 使用默认 Table，不开启 striped；操作列用 Dropdown | 符合 |
-| 状态 | 使用 Badge 状态点 + 文本；Tag 不承担关键状态 | 服务器状态、运行状态均使用 Badge + 文本；Tag 仅用于分类 | 符合 |
-| 反馈 | message 用于轻提示，notification 用于长任务/错误，Alert 用于内联说明，Empty 用于空态 | 通过 `App.useApp()` 获取实例；错误使用 Alert；列表空态使用 Empty | 符合 |
-| 动效 | 使用 motion token：0.1s / 0.2s / 0.3s，不自定义曲线 | 组件过渡使用 antd 默认动效，不覆盖 easing | 符合 |
-| 暗色 | 使用 `darkAlgorithm` 派生，不手工反色 | 跟随系统切换 `theme.algorithm` | 符合 |
+| 检查项 | Ant Design 规范                                                                      | 本项目落实                                                                                  | 结论   |
+| ------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | ------ |
+| 色彩   | 主色 `#1677FF`；success / warning / error / info 表达状态；预设色板仅用于标签与分类  | 使用默认 `colorPrimary`；危险操作 `colorError`；标签使用预设色；不新增品牌色                | 符合   |
+| 字体   | 基准 14px，仅使用 400 / 600 字重；表格头 14/600；代码 13px                           | 沿用 antd 字体与字重；日志面板使用 13px 等宽字体；标题使用 600，不出现 700+ 或斜体          | 符合   |
+| 间距   | 4px 网格（4/8/12/16/24/32）；控件高度 32px；默认卡片内边距 24px，小卡片 12px         | 页面主要区块 12px、次级区块 8px；导航 200px、抽屉 520px、表单单列间距 8/24px 均落在网格上   | 符合   |
+| 圆角   | 控件 6px、容器 8px、标签与浮层 4px；胶囊形仅用于头像/徽标                            | 使用默认圆角，不做全局覆盖；不使用胶囊按钮                                                  | 符合   |
+| 层级   | 三层表面：layout / container / elevated；扁平优先，阴影仅用于浮层                    | 页面使用 `colorBgLayout`，内容使用 Card；仅 Drawer / Modal / Dropdown 使用阴影              | 符合   |
+| 按钮   | 同一表面只保留一个 primary；危险操作使用 error 语义                                  | 环境详情以「更新」为 primary，「关闭」为 danger，其余 default；列表页「新增」为唯一 primary | 已落实 |
+| 导航   | Menu 选中项使用 `colorPrimaryBg` + `colorPrimary` 文本                               | 直接使用 Menu 默认选中态，不自定义导航配色                                                  | 符合   |
+| 表格   | 表头使用 `surface-container` + title-md；行 hover 高亮，不使用斑马纹                 | 使用默认 Table，不开启 striped；操作列用 Dropdown                                           | 符合   |
+| 状态   | 使用 Badge 状态点 + 文本；Tag 不承担关键状态                                         | 服务器状态、运行状态均使用 Badge + 文本；Tag 仅用于分类                                     | 符合   |
+| 反馈   | message 用于轻提示，notification 用于长任务/错误，Alert 用于内联说明，Empty 用于空态 | 通过 `App.useApp()` 获取实例；错误使用 Alert；列表空态使用 Empty                            | 符合   |
+| 动效   | 使用 motion token：0.1s / 0.2s / 0.3s，不自定义曲线                                  | 组件过渡使用 antd 默认动效，不覆盖 easing                                                   | 符合   |
+| 暗色   | 使用 `darkAlgorithm` 派生，不手工反色                                                | 跟随系统切换 `theme.algorithm`                                                              | 符合   |
 
 **核对后的修正**：
 
@@ -682,104 +682,120 @@ Corral
 
 ```ts
 export interface Server {
-  id: string;              // nanoid
-  name: string;
-  host: string;
-  port: number;
-  username: string;
-  description?: string;
-  tags: string[];
-  createdAt: string;       // ISO 8601
-  updatedAt: string;
-  lastConnectedAt?: string;
+  id: string // nanoid
+  name: string
+  host: string
+  port: number
+  username: string
+  description?: string
+  tags: string[]
+  createdAt: string // ISO 8601
+  updatedAt: string
+  lastConnectedAt?: string
 }
 
 export interface PathEntry {
-  key: string;             // 变量名
-  label: string;           // 展示名
-  path: string;            // 远程绝对路径
-  required?: boolean;      // 目前仅 workDir 为 true
+  key: string // 变量名
+  label: string // 展示名
+  path: string // 远程绝对路径
+  required?: boolean // 目前仅 workDir 为 true
 }
 
 export interface UploadItem {
-  id: string;
-  kind: 'file' | 'dir';
-  localPath: string;       // 本地绝对路径
-  targetDir: string;       // 远程绝对路径，支持 ${key}；目录上传时合并内容到此
-  conflict: 'backup' | 'overwrite';
+  id: string
+  kind: 'file' | 'dir'
+  localPath: string // 本地绝对路径
+  targetDir: string // 远程绝对路径，支持 ${key}；目录上传时合并内容到此
+  conflict: 'backup' | 'overwrite'
 }
 
 export interface EnvAction {
-  id: string;
-  name: string;
-  command: string;
-  timeoutSec: number;      // 0 = 不限
-  confirm: boolean;
-  danger?: boolean;
-  uploads: UploadItem[];   // 执行前预上传，可为空
+  id: string
+  name: string
+  command: string
+  timeoutSec: number // 0 = 不限
+  confirm: boolean
+  danger?: boolean
+  uploads: UploadItem[] // 执行前预上传，可为空
 }
 
 export interface DevEnv {
-  id: string;
-  serverId: string;
-  name: string;
-  description?: string;
-  paths: PathEntry[];
-  actions: EnvAction[];
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  serverId: string
+  name: string
+  description?: string
+  paths: PathEntry[]
+  actions: EnvAction[]
+  createdAt: string
+  updatedAt: string
 }
 
 export type RunStatus =
-  | 'queued' | 'connecting' | 'validating' | 'uploading' | 'running'
-  | 'success' | 'failed' | 'timeout' | 'canceled' | 'disconnected';
+  | 'queued'
+  | 'connecting'
+  | 'validating'
+  | 'uploading'
+  | 'running'
+  | 'success'
+  | 'failed'
+  | 'timeout'
+  | 'canceled'
+  | 'disconnected'
 
 export type RunErrorKind =
-  | 'dns' | 'connect-timeout' | 'refused' | 'auth'
-  | 'hostkey' | 'network' | 'remote' | 'config' | 'upload' | 'unknown';
+  | 'dns'
+  | 'connect-timeout'
+  | 'refused'
+  | 'auth'
+  | 'hostkey'
+  | 'network'
+  | 'remote'
+  | 'config'
+  | 'upload'
+  | 'unknown'
 
 export interface UploadStats {
-  itemCount: number;
-  fileCount: number;
-  totalBytes: number;
-  transferredBytes: number;
-  durationMs?: number;
-  backups: string[];       // 备份后的远端路径，最多保留 200 条用于展示
+  itemCount: number
+  fileCount: number
+  totalBytes: number
+  transferredBytes: number
+  durationMs?: number
+  backups: string[] // 备份后的远端路径，最多保留 200 条用于展示
 }
 
 export interface RunPrecheck {
-  resolvedCommand: string;
+  resolvedCommand: string
   items: {
-    localPath: string;
-    kind: 'file' | 'dir';
-    targetPath: string;
-    exists: boolean;
-    bytes: number;
-  }[];
-  totalBytes: number;
-  missing: string[];       // 本地不存在的路径
+    localPath: string
+    kind: 'file' | 'dir'
+    targetPath: string
+    exists: boolean
+    bytes: number
+  }[]
+  totalBytes: number
+  missing: string[] // 本地不存在的路径
 }
 
 export interface Run {
-  id: string;
-  envId: string;
-  envName: string;         // 快照
-  serverId: string;
-  serverName: string;      // 快照
-  actionId: string;
-  actionName: string;      // 快照
-  command: string;         // 原始命令
-  resolvedCommand: string; // 变量替换后
-  status: RunStatus;
-  exitCode?: number;
-  errorKind?: RunErrorKind;
-  errorMessage?: string;
-  startedAt: string;
-  endedAt?: string;
-  durationMs?: number;
-  logBytes?: number;
-  remotePid?: number;
-  uploadStats?: UploadStats;
+  id: string
+  envId: string
+  envName: string // 快照
+  serverId: string
+  serverName: string // 快照
+  actionId: string
+  actionName: string // 快照
+  command: string // 原始命令
+  resolvedCommand: string // 变量替换后
+  status: RunStatus
+  exitCode?: number
+  errorKind?: RunErrorKind
+  errorMessage?: string
+  startedAt: string
+  endedAt?: string
+  durationMs?: number
+  logBytes?: number
+  remotePid?: number
+  uploadStats?: UploadStats
 }
 ```
 
@@ -800,12 +816,12 @@ export interface Run {
 
 ```ts
 interface StoreFile {
-  schemaVersion: 2;
-  servers: Server[];
-  envs: DevEnv[];
-  pathChecks: Record<string, PathCheck[]>; // 手动校验快照，不随配置导出
-  runs: Run[];              // 仅元数据，最多保留条数由设置控制
-  settings: Settings;
+  schemaVersion: 2
+  servers: Server[]
+  envs: DevEnv[]
+  pathChecks: Record<string, PathCheck[]> // 手动校验快照，不随配置导出
+  runs: Run[] // 仅元数据，最多保留条数由设置控制
+  settings: Settings
 }
 ```
 
@@ -874,39 +890,39 @@ interface StoreFile {
 
 所有通道在主进程用 Zod 校验入参，返回 `{ ok: true, data }` 或 `{ ok: false, error: { code, message } }`。
 
-| 通道 | 入参 | 返回 | 说明 |
-| --- | --- | --- | --- |
-| `server:list` | — | `Server[]` | 不含密码 |
-| `server:create` | `ServerInput` | `Server` | 密码单独加密存储 |
-| `server:update` | `id, ServerInput` | `Server` | 密码为空则保留 |
-| `server:remove` | `id` | `void` | 级联删除环境与凭据 |
-| `server:test` | `id` 或临时 `ServerInput` | `TestResult` | 含耗时、发行版信息 |
-| `env:list` | `{ serverId? }` | `DevEnv[]` | |
-| `env:create` / `env:update` / `env:remove` | — | `DevEnv` / `void` | |
-| `env:validatePaths` | `envId` | `PathCheck[]` | 需要连接，成功后保存快照 |
-| `run:precheck` | `{ envId, actionId }` | `RunPrecheck` | 展开上传目标、统计大小、检查本地文件、返回预览命令 |
-| `run:start` | `{ envId, actionId }` | `{ runId }` | 立即返回，后续走事件 |
-| `run:cancel` | `runId` | `void` | 尽力终止（含上传阶段） |
-| `run:list` | `RunFilter` | `Run[]` | 分页 |
-| `run:readLog` | `{ runId, offset, limit }` | `LogChunk` | 历史回看 |
-| `run:exportLog` | `runId` | `{ filePath }` | 弹出保存对话框 |
-| `run:remove` / `run:clear` | `id` / `filter?` | `void` | 同时删除日志文件 |
-| `settings:get` / `settings:update` | — | `Settings` | |
-| `hostkey:decision` | `{ challengeId, accept }` | `void` | 渲染进程回应指纹确认 |
-| `dialog:pickFiles` | `{ multiple?: boolean }` | `string[]` | 系统文件选择，返回绝对路径 |
-| `dialog:pickDirectory` | — | `string \| null` | 系统目录选择 |
-| `app:openDataDir` | — | `void` | |
+| 通道                                       | 入参                       | 返回              | 说明                                               |
+| ------------------------------------------ | -------------------------- | ----------------- | -------------------------------------------------- |
+| `server:list`                              | —                          | `Server[]`        | 不含密码                                           |
+| `server:create`                            | `ServerInput`              | `Server`          | 密码单独加密存储                                   |
+| `server:update`                            | `id, ServerInput`          | `Server`          | 密码为空则保留                                     |
+| `server:remove`                            | `id`                       | `void`            | 级联删除环境与凭据                                 |
+| `server:test`                              | `id` 或临时 `ServerInput`  | `TestResult`      | 含耗时、发行版信息                                 |
+| `env:list`                                 | `{ serverId? }`            | `DevEnv[]`        |                                                    |
+| `env:create` / `env:update` / `env:remove` | —                          | `DevEnv` / `void` |                                                    |
+| `env:validatePaths`                        | `envId`                    | `PathCheck[]`     | 需要连接，成功后保存快照                           |
+| `run:precheck`                             | `{ envId, actionId }`      | `RunPrecheck`     | 展开上传目标、统计大小、检查本地文件、返回预览命令 |
+| `run:start`                                | `{ envId, actionId }`      | `{ runId }`       | 立即返回，后续走事件                               |
+| `run:cancel`                               | `runId`                    | `void`            | 尽力终止（含上传阶段）                             |
+| `run:list`                                 | `RunFilter`                | `Run[]`           | 分页                                               |
+| `run:readLog`                              | `{ runId, offset, limit }` | `LogChunk`        | 历史回看                                           |
+| `run:exportLog`                            | `runId`                    | `{ filePath }`    | 弹出保存对话框                                     |
+| `run:remove` / `run:clear`                 | `id` / `filter?`           | `void`            | 同时删除日志文件                                   |
+| `settings:get` / `settings:update`         | —                          | `Settings`        |                                                    |
+| `hostkey:decision`                         | `{ challengeId, accept }`  | `void`            | 渲染进程回应指纹确认                               |
+| `dialog:pickFiles`                         | `{ multiple?: boolean }`   | `string[]`        | 系统文件选择，返回绝对路径                         |
+| `dialog:pickDirectory`                     | —                          | `string \| null`  | 系统目录选择                                       |
+| `app:openDataDir`                          | —                          | `void`            |                                                    |
 
 **事件（主 → 渲染）**
 
-| 事件 | 载荷 |
-| --- | --- |
-| `run:status` | `{ runId, status, errorKind?, errorMessage?, exitCode?, durationMs? }` |
-| `run:output` | `{ runId, stream: 'stdout' \| 'stderr' \| 'system', data: string }` |
-| `run:progress` | `{ runId, phase: 'upload', fileIndex, fileCount, fileName, transferredBytes, totalBytes }` |
-| `hostkey:challenge` | `{ challengeId, host, port, keyType, fingerprint, isMismatch, oldFingerprint? }` |
-| `run:done` | `Run` |
-| `app:notice` | `{ level, message }` |
+| 事件                | 载荷                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `run:status`        | `{ runId, status, errorKind?, errorMessage?, exitCode?, durationMs? }`                     |
+| `run:output`        | `{ runId, stream: 'stdout' \| 'stderr' \| 'system', data: string }`                        |
+| `run:progress`      | `{ runId, phase: 'upload', fileIndex, fileCount, fileName, transferredBytes, totalBytes }` |
+| `hostkey:challenge` | `{ challengeId, host, port, keyType, fingerprint, isMismatch, oldFingerprint? }`           |
+| `run:done`          | `Run`                                                                                      |
+| `app:notice`        | `{ level, message }`                                                                       |
 
 **事件订阅**：preload 暴露 `onRunStatus`、`onRunOutput`、`onRunProgress`、`onHostKeyChallenge` 等订阅方法，均返回取消订阅函数，组件卸载时调用，防止监听泄漏。
 
@@ -916,19 +932,19 @@ interface StoreFile {
 
 ### 11.1 错误分类与文案
 
-| 底层错误 | 分类 | 用户文案 | 建议 |
-| --- | --- | --- | --- |
-| `ENOTFOUND` | `dns` | 无法解析主机名 | 检查拼写或改用 IP |
-| `ETIMEDOUT` | `connect-timeout` | 连接超时 | 检查 IP、端口、防火墙、VPN |
-| `ECONNREFUSED` | `refused` | 端口拒绝连接 | 确认 sshd 已启动、端口正确 |
-| 认证失败（`All configured authentication methods failed`） | `auth` | 账号或密码错误 | 重新输入密码；确认账号未被锁定 |
-| host key 不匹配 | `hostkey` | 主机密钥与记录不一致 | 可能重装或存在中间人风险，谨慎信任 |
-| `ECONNRESET` / 通道关闭 | `network` | 连接中断 | 检查网络；命令可能仍在远端运行 |
-| 退出码 ≠ 0 | `remote` | 命令执行失败（退出码 N） | 查看 stderr |
-| 本地文件不存在 / 不可读 | `upload` | 本地文件不可用：`<path>` | 重新构建或重新选择文件 |
-| 远端权限不足 / 磁盘已满 | `upload` | 上传失败：`<remote path>` 写入失败 | 检查目录权限与 `df -h` |
-| SFTP 子系统不可用 | `upload` | 服务器未启用 SFTP | 检查 sshd 的 `Subsystem sftp` 配置 |
-| 目标已存在且类型冲突（文件/目录） | `upload` | 目标类型冲突：`<path>` | 调整目标目录或手动处理后重试 |
+| 底层错误                                                   | 分类              | 用户文案                           | 建议                               |
+| ---------------------------------------------------------- | ----------------- | ---------------------------------- | ---------------------------------- |
+| `ENOTFOUND`                                                | `dns`             | 无法解析主机名                     | 检查拼写或改用 IP                  |
+| `ETIMEDOUT`                                                | `connect-timeout` | 连接超时                           | 检查 IP、端口、防火墙、VPN         |
+| `ECONNREFUSED`                                             | `refused`         | 端口拒绝连接                       | 确认 sshd 已启动、端口正确         |
+| 认证失败（`All configured authentication methods failed`） | `auth`            | 账号或密码错误                     | 重新输入密码；确认账号未被锁定     |
+| host key 不匹配                                            | `hostkey`         | 主机密钥与记录不一致               | 可能重装或存在中间人风险，谨慎信任 |
+| `ECONNRESET` / 通道关闭                                    | `network`         | 连接中断                           | 检查网络；命令可能仍在远端运行     |
+| 退出码 ≠ 0                                                 | `remote`          | 命令执行失败（退出码 N）           | 查看 stderr                        |
+| 本地文件不存在 / 不可读                                    | `upload`          | 本地文件不可用：`<path>`           | 重新构建或重新选择文件             |
+| 远端权限不足 / 磁盘已满                                    | `upload`          | 上传失败：`<remote path>` 写入失败 | 检查目录权限与 `df -h`             |
+| SFTP 子系统不可用                                          | `upload`          | 服务器未启用 SFTP                  | 检查 sshd 的 `Subsystem sftp` 配置 |
+| 目标已存在且类型冲突（文件/目录）                          | `upload`          | 目标类型冲突：`<path>`             | 调整目标目录或手动处理后重试       |
 
 > 认证失败**不自动重试**，避免触发服务器账号锁定策略。
 
@@ -959,15 +975,15 @@ const stream = await client.exec(`bash -lc ${quoted}`, { pty: false })
 
 ```ts
 // 伪代码
-const sftp = await client.sftp();
-await mkdirp(sftp, targetDir);            // 逐级 mkdir，权限 0755
-const total = await statLocalTree(item);  // 汇总文件数与字节数
+const sftp = await client.sftp()
+await mkdirp(sftp, targetDir) // 逐级 mkdir，权限 0755
+const total = await statLocalTree(item) // 汇总文件数与字节数
 await sftp.fastPut(localFile, tempPath, {
   mode: 0o644,
-  concurrency: 8,                         // 单文件内部流水线
-  step: (transferred, _chunk, size) => onProgress(transferred, size),
-});
-await exec(`mv ${q(target)} ${q(backup)} && mv ${q(temp)} ${q(target)}`);
+  concurrency: 8, // 单文件内部流水线
+  step: (transferred, _chunk, size) => onProgress(transferred, size)
+})
+await exec(`mv ${q(target)} ${q(backup)} && mv ${q(temp)} ${q(target)}`)
 ```
 
 - 目录递归使用 `fs.promises.opendir`，将目录内容逐文件 `fastPut` 到 `targetDir`（不创建同名子目录）；多文件**串行**，避免带宽争抢；
@@ -981,39 +997,39 @@ await exec(`mv ${q(target)} ${q(backup)} && mv ${q(temp)} ${q(target)}`);
 
 ## 12. 异常与边界
 
-| 场景 | 处理 |
-| --- | --- |
-| 应用退出时仍有执行中任务 | 弹窗提示「N 个任务将中断（远端进程可能继续）」，确认后关闭连接并退出 |
-| 连续快速点击同一操作 | 按钮 loading + 主进程幂等校验，第二次直接拒绝 |
-| 命令超长（> 64KB） | 保存时限制 64KB，超出提示拆分脚本 |
-| 日志暴涨（如 `docker compose pull`） | 服务端节流 + 渲染端环形缓冲；日志文件上限 50MB/次，超出后停止写入并提示 |
-| 目录含空格/中文 | 模板与插入变量自动加引号；保存时警告未加引号的变量 |
-| 本地文件在配置后被删除/移动 | 执行前预检失败，提示缺失路径，不建立连接 |
-| 上传过程中本地文件被修改 | 读取长度与预统计不一致时终止该项，清理临时文件并标记失败 |
-| 上传中途断网 | 标记 `disconnected`，清理临时文件；已替换的文件不回滚，日志中列出 |
-| 上传大文件/大量文件 | 流式读取，不占同等内存；多文件串行、单文件流水线；进度可取消；空闲 60s 终止 |
-| 备份文件持续累积 | 不自动删除；系统日志给出备份路径，设置页说明可手动清理 |
-| 目标目录不存在 | 自动 `mkdir -p` 并记录日志；若权限不足则失败并提示 |
-| 服务器重装导致 host key 变化 | 阻止连接，引导手动信任新指纹 |
-| 密码在外部被修改 | 认证失败提示重新输入，可只更新密码 |
-| 系统时间不正确 | 仅影响日志排序展示，不影响功能 |
-| 数据文件损坏 | 备份为 `.corrupt` 文件后以空库启动并提示 |
-| 多显示器/缩放 | 窗口尺寸与位置持久化，最小尺寸 1100×720 |
+| 场景                                 | 处理                                                                        |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| 应用退出时仍有执行中任务             | 弹窗提示「N 个任务将中断（远端进程可能继续）」，确认后关闭连接并退出        |
+| 连续快速点击同一操作                 | 按钮 loading + 主进程幂等校验，第二次直接拒绝                               |
+| 命令超长（> 64KB）                   | 保存时限制 64KB，超出提示拆分脚本                                           |
+| 日志暴涨（如 `docker compose pull`） | 服务端节流 + 渲染端环形缓冲；日志文件上限 50MB/次，超出后停止写入并提示     |
+| 目录含空格/中文                      | 模板与插入变量自动加引号；保存时警告未加引号的变量                          |
+| 本地文件在配置后被删除/移动          | 执行前预检失败，提示缺失路径，不建立连接                                    |
+| 上传过程中本地文件被修改             | 读取长度与预统计不一致时终止该项，清理临时文件并标记失败                    |
+| 上传中途断网                         | 标记 `disconnected`，清理临时文件；已替换的文件不回滚，日志中列出           |
+| 上传大文件/大量文件                  | 流式读取，不占同等内存；多文件串行、单文件流水线；进度可取消；空闲 60s 终止 |
+| 备份文件持续累积                     | 不自动删除；系统日志给出备份路径，设置页说明可手动清理                      |
+| 目标目录不存在                       | 自动 `mkdir -p` 并记录日志；若权限不足则失败并提示                          |
+| 服务器重装导致 host key 变化         | 阻止连接，引导手动信任新指纹                                                |
+| 密码在外部被修改                     | 认证失败提示重新输入，可只更新密码                                          |
+| 系统时间不正确                       | 仅影响日志排序展示，不影响功能                                              |
+| 数据文件损坏                         | 备份为 `.corrupt` 文件后以空库启动并提示                                    |
+| 多显示器/缩放                        | 窗口尺寸与位置持久化，最小尺寸 1100×720                                     |
 
 ---
 
 ## 13. 非功能需求
 
-| 维度 | 目标 |
-| --- | --- |
-| 启动时间 | 冷启动 < 2s（不含首次安装） |
-| 数据规模 | 200 台服务器、500 个环境、200 条历史记录下操作流畅 |
-| 日志延迟 | 远端输出到界面呈现 < 200ms；上传进度刷新 < 300ms |
+| 维度     | 目标                                                              |
+| -------- | ----------------------------------------------------------------- |
+| 启动时间 | 冷启动 < 2s（不含首次安装）                                       |
+| 数据规模 | 200 台服务器、500 个环境、200 条历史记录下操作流畅                |
+| 日志延迟 | 远端输出到界面呈现 < 200ms；上传进度刷新 < 300ms                  |
 | 上传能力 | 百 MB 级文件/目录上传不阻塞界面，进度可见、可取消；单文件流式读写 |
-| 安装包 | NSIS 安装包 < 120MB |
-| 稳定性 | 单次执行异常不影响应用主流程；SSH 错误均有可读文案 |
-| 资源占用 | 空闲时内存 < 250MB；不后台轮询、不常驻连接 |
-| 可维护性 | 主进程服务按职责拆分，IPC 契约与 Zod Schema 单一来源 |
+| 安装包   | NSIS 安装包 < 120MB                                               |
+| 稳定性   | 单次执行异常不影响应用主流程；SSH 错误均有可读文案                |
+| 资源占用 | 空闲时内存 < 250MB；不后台轮询、不常驻连接                        |
+| 可维护性 | 主进程服务按职责拆分，IPC 契约与 Zod Schema 单一来源              |
 
 ---
 
@@ -1085,41 +1101,41 @@ corral/
 
 ## 15. 测试策略
 
-| 层级 | 内容 |
-| --- | --- |
-| 单元测试（Vitest） | `shellQuote`、变量解析、路径校验脚本生成、Run 状态机、日志保留清理、Zod Schema |
-| 集成测试 | 使用本地 Docker 启动带密码认证的 sshd，覆盖：连接、host key 首次信任/变更、exec 流、非零退出码、超时与取消；SFTP 文件/目录上传、覆盖备份、临时文件清理、权限不足与空间不足 |
-| UI 测试 | Playwright Electron 冒烟：启动 → 新增服务器 → 新增环境 → 配置预上传 → 执行 `echo` → 查看上传进度与历史 |
-| 手工验证 | 真实 Ubuntu 22.04 / 银河麒麟 V10 各一台，验证编码、PATH、目录校验、中文字符路径、大文件上传与备份替换 |
+| 层级               | 内容                                                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 单元测试（Vitest） | `shellQuote`、变量解析、路径校验脚本生成、Run 状态机、日志保留清理、Zod Schema                                                                                             |
+| 集成测试           | 使用本地 Docker 启动带密码认证的 sshd，覆盖：连接、host key 首次信任/变更、exec 流、非零退出码、超时与取消；SFTP 文件/目录上传、覆盖备份、临时文件清理、权限不足与空间不足 |
+| UI 测试            | Playwright Electron 冒烟：启动 → 新增服务器 → 新增环境 → 配置预上传 → 执行 `echo` → 查看上传进度与历史                                                                     |
+| 手工验证           | 真实 Ubuntu 22.04 / 银河麒麟 V10 各一台，验证编码、PATH、目录校验、中文字符路径、大文件上传与备份替换                                                                      |
 
 ---
 
 ## 16. 里程碑
 
-| 阶段 | 交付内容 | 验收标准 |
-| --- | --- | --- |
-| M1 骨架 | 工程初始化、主/预加载/渲染打通、布局与路由、设置持久化 | 应用可启动，导航可用 |
-| M2 服务器 | 服务器 CRUD、safeStorage 凭据、连接测试、host key 确认 | 可新增并成功连接真实机器 |
-| M3 环境 | 环境 CRUD、目录配置与校验、操作编辑与模板、预上传配置 | 目录状态展示正确，命令与上传目标预览正确 |
-| M4 执行 | RunManager、流式日志、取消/超时、错误分类、SFTP 预上传与进度 | 更新/启动/关闭及上传全流程可用 |
-| M5 历史与打包 | 历史列表/日志回看/导出、日志清理、NSIS 打包 | 安装包在纯净 Win10/11 可运行 |
-| M6 打磨 | 空状态、文案、暗色主题、异常兜底、真实环境回归 | 通过 §15 手工验证清单 |
+| 阶段          | 交付内容                                                     | 验收标准                                 |
+| ------------- | ------------------------------------------------------------ | ---------------------------------------- |
+| M1 骨架       | 工程初始化、主/预加载/渲染打通、布局与路由、设置持久化       | 应用可启动，导航可用                     |
+| M2 服务器     | 服务器 CRUD、safeStorage 凭据、连接测试、host key 确认       | 可新增并成功连接真实机器                 |
+| M3 环境       | 环境 CRUD、目录配置与校验、操作编辑与模板、预上传配置        | 目录状态展示正确，命令与上传目标预览正确 |
+| M4 执行       | RunManager、流式日志、取消/超时、错误分类、SFTP 预上传与进度 | 更新/启动/关闭及上传全流程可用           |
+| M5 历史与打包 | 历史列表/日志回看/导出、日志清理、NSIS 打包                  | 安装包在纯净 Win10/11 可运行             |
+| M6 打磨       | 空状态、文案、暗色主题、异常兜底、真实环境回归               | 通过 §15 手工验证清单                    |
 
 ---
 
 ## 17. 风险与待确认事项
 
-| # | 事项 | 影响 | 应对 |
-| --- | --- | --- | --- |
-| 1 | 银河麒麟的国产化 OpenSSH 配置差异（算法、编码） | 连接失败或乱码 | 提供「兼容旧算法」与输出编码设置；真实机器验证 |
-| 2 | `safeStorage` 绑定 Windows 用户，换机后无法解密 | 用户需重新输入密码 | 明确提示；不阻塞其他数据 |
-| 3 | 取消操作无法保证杀掉所有子进程 | 残留进程 | UI 明示「尽力终止」；文档建议脚本自身做好进程管理 |
-| 4 | 用户命令需要 sudo 密码 | 无法非交互执行 | 一期文档说明：配置 NOPASSWD 或使用有权限账号；二期评估 sudo 密码托管 |
-| 5 | 长任务日志量过大 | 内存/磁盘压力 | 节流 + 环形缓冲 + 单次日志上限 |
-| 6 | 密码可能被写进命令本身 | 泄露到历史记录 | 文档提示；执行记录导出前提示检查；二期可做敏感词脱敏 |
-| 7 | 上传大文件/目录耗时长、占用带宽 | 执行等待时间长 | 进度可见、可取消、串行上传；命令超时不计入上传阶段；文档建议大产物走内网 |
-| 8 | 自动备份在目标目录累积 | 磁盘占用增长 | 日志给出备份路径；不自动删除；文档提示定期清理 |
-| 9 | 目标目录拼写错误导致自动创建 | 产生垃圾目录 | 目标必须是绝对路径并经过变量解析；日志明确输出创建路径；目录校验可提前发现 |
+| #   | 事项                                            | 影响               | 应对                                                                       |
+| --- | ----------------------------------------------- | ------------------ | -------------------------------------------------------------------------- |
+| 1   | 银河麒麟的国产化 OpenSSH 配置差异（算法、编码） | 连接失败或乱码     | 提供「兼容旧算法」与输出编码设置；真实机器验证                             |
+| 2   | `safeStorage` 绑定 Windows 用户，换机后无法解密 | 用户需重新输入密码 | 明确提示；不阻塞其他数据                                                   |
+| 3   | 取消操作无法保证杀掉所有子进程                  | 残留进程           | UI 明示「尽力终止」；文档建议脚本自身做好进程管理                          |
+| 4   | 用户命令需要 sudo 密码                          | 无法非交互执行     | 一期文档说明：配置 NOPASSWD 或使用有权限账号；二期评估 sudo 密码托管       |
+| 5   | 长任务日志量过大                                | 内存/磁盘压力      | 节流 + 环形缓冲 + 单次日志上限                                             |
+| 6   | 密码可能被写进命令本身                          | 泄露到历史记录     | 文档提示；执行记录导出前提示检查；二期可做敏感词脱敏                       |
+| 7   | 上传大文件/目录耗时长、占用带宽                 | 执行等待时间长     | 进度可见、可取消、串行上传；命令超时不计入上传阶段；文档建议大产物走内网   |
+| 8   | 自动备份在目标目录累积                          | 磁盘占用增长       | 日志给出备份路径；不自动删除；文档提示定期清理                             |
+| 9   | 目标目录拼写错误导致自动创建                    | 产生垃圾目录       | 目标必须是绝对路径并经过变量解析；日志明确输出创建路径；目录校验可提前发现 |
 
 ### 待确认（不阻塞一期开工）
 
@@ -1144,22 +1160,22 @@ corral/
 
 ## 附录 A：关键实现约定速查
 
-| 项 | 约定 |
-| --- | --- |
-| 执行 shell | `bash -lc` |
-| 命令转义 | POSIX 单引号，`'` → `'\''` |
-| 上传临时文件 | `targetDir/.corral-tmp-<runId>-<name>` |
-| 上传备份 | `<target>.bak-<yyyyMMdd-HHmmss>`，重名追加序号 |
-| 上传权限 | 文件 `0644`，目录 `0755` |
-| 上传并发 | 多文件串行；单文件 `fastPut` 流水线 8 |
-| 上传空闲超时 | 60s 无字节进度 |
-| 变量语法 | `${key}`，替换为路径原文 |
-| 日志格式 | JSONL，`{ "t": 毫秒偏移, "s": "out"\|"err"\|"sys", "d": "文本" }` |
-| 日志节流 | 50–100ms 或 64KB 聚合 |
-| 连接超时 | 15s；检测超时 8s |
-| 保活 | `keepaliveInterval=15s`，`keepaliveCountMax=3` |
-| 凭证加密 | `safeStorage.encryptString` + Base64 |
-| 主机指纹 | SHA256，首次信任（TOFU） |
-| 数据目录 | `%APPDATA%/Corral` |
-| 单环境并发 | 1 |
-| 全局并发 | 4 |
+| 项           | 约定                                                              |
+| ------------ | ----------------------------------------------------------------- |
+| 执行 shell   | `bash -lc`                                                        |
+| 命令转义     | POSIX 单引号，`'` → `'\''`                                        |
+| 上传临时文件 | `targetDir/.corral-tmp-<runId>-<name>`                            |
+| 上传备份     | `<target>.bak-<yyyyMMdd-HHmmss>`，重名追加序号                    |
+| 上传权限     | 文件 `0644`，目录 `0755`                                          |
+| 上传并发     | 多文件串行；单文件 `fastPut` 流水线 8                             |
+| 上传空闲超时 | 60s 无字节进度                                                    |
+| 变量语法     | `${key}`，替换为路径原文                                          |
+| 日志格式     | JSONL，`{ "t": 毫秒偏移, "s": "out"\|"err"\|"sys", "d": "文本" }` |
+| 日志节流     | 50–100ms 或 64KB 聚合                                             |
+| 连接超时     | 15s；检测超时 8s                                                  |
+| 保活         | `keepaliveInterval=15s`，`keepaliveCountMax=3`                    |
+| 凭证加密     | `safeStorage.encryptString` + Base64                              |
+| 主机指纹     | SHA256，首次信任（TOFU）                                          |
+| 数据目录     | `%APPDATA%/Corral`                                                |
+| 单环境并发   | 1                                                                 |
+| 全局并发     | 4                                                                 |

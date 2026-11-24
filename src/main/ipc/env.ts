@@ -4,7 +4,12 @@ import { CH } from '@shared/ipc'
 import { newId } from '@shared/id'
 import { buildPathCheckScript, parsePathCheckOutput, shellQuote } from '@shared/command'
 import { envPathCheckTargetChanged, serverPathCheckTargetChanged } from '@shared/pathCheck'
-import { devEnvInputSchema, envUpdatePayloadSchema, envValidatePayloadSchema, idSchema } from '@shared/schema'
+import {
+  devEnvInputSchema,
+  envUpdatePayloadSchema,
+  envValidatePayloadSchema,
+  idSchema
+} from '@shared/schema'
 import type { AppContext } from '../context'
 import { handle } from './index'
 

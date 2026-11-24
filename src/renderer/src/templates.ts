@@ -30,7 +30,10 @@ export const ENV_TEMPLATES: EnvTemplate[] = [
     label: 'Docker Compose',
     description: '更新 / 启动 / 关闭 / 状态',
     build: () => [
-      action('更新', 'cd "\${workDir}" && docker compose pull && docker compose up -d --remove-orphans'),
+      action(
+        '更新',
+        'cd "\${workDir}" && docker compose pull && docker compose up -d --remove-orphans'
+      ),
       action('启动', 'cd "\${workDir}" && docker compose up -d'),
       action('关闭', 'cd "\${workDir}" && docker compose down', { danger: true }),
       action('状态', 'cd "\${workDir}" && docker compose ps')
@@ -51,7 +54,10 @@ export const ENV_TEMPLATES: EnvTemplate[] = [
     label: '脚本 / 二进制',
     description: 'nohup 启动与停止脚本',
     build: () => [
-      action('启动', 'cd "\${workDir}" || exit 1; nohup ./start.sh > "\${logDir}/app.log" 2>&1 < /dev/null & echo $!'),
+      action(
+        '启动',
+        'cd "\${workDir}" || exit 1; nohup ./start.sh > "\${logDir}/app.log" 2>&1 < /dev/null & echo $!'
+      ),
       action('关闭', 'cd "\${workDir}" && ./stop.sh', { danger: true })
     ]
   },

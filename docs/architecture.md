@@ -19,19 +19,19 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
 
 ### 技术栈
 
-| 层 | 选型 | 当前版本 |
-| --- | --- | --- |
-| 桌面运行时 | Electron | 45.4.1 |
-| 构建 | electron-vite + Vite | 6.0.0 / 8.3.8 |
-| UI | React + Ant Design | 19.3.1 / 6.7.1 |
-| 状态 | Zustand | 5.1.0 |
-| 校验 | Zod | 4.6.7 |
-| SSH/SFTP | ssh2 | 1.17.0 |
-| 日志渲染 | anser | 2.3.5 |
-| 编码 | iconv-lite | 0.7.3 |
-| 语言/类型 | TypeScript | 5.9.3 |
-| 测试 | Vitest | 5.1.1 |
-| 打包 | electron-builder（NSIS x64） | 26.18.0 |
+| 层         | 选型                         | 当前版本       |
+| ---------- | ---------------------------- | -------------- |
+| 桌面运行时 | Electron                     | 45.4.1         |
+| 构建       | electron-vite + Vite         | 6.0.0 / 8.3.8  |
+| UI         | React + Ant Design           | 19.3.1 / 6.7.1 |
+| 状态       | Zustand                      | 5.1.0          |
+| 校验       | Zod                          | 4.6.7          |
+| SSH/SFTP   | ssh2                         | 1.17.0         |
+| 日志渲染   | anser                        | 2.3.5          |
+| 编码       | iconv-lite                   | 0.7.3          |
+| 语言/类型  | TypeScript                   | 5.9.3          |
+| 测试       | Vitest                       | 5.1.1          |
+| 打包       | electron-builder（NSIS x64） | 26.18.0        |
 
 主进程和预加载脚本输出 CommonJS（package.json 未设置 type: module），因此 sandbox: true 的预加载脚本可以正常 require('electron')。ssh2 与 iconv-lite 放在 dependencies 中并由 electron-builder 打入 asar；React、antd、zustand、zod、nanoid、anser 等由 Vite 打进各自 bundle。
 
@@ -257,15 +257,15 @@ upload.ts 负责实际传输：
 
 ## 6. 共享层
 
-| 文件 | 职责 |
-| --- | --- |
-| shared/types.ts | Server、DevEnv、EnvAction、UploadRule、UploadItem、Run、Settings、事件载荷、默认设置 |
-| shared/schema.ts | 服务器、环境、目录、操作、上传、设置、run 过滤等 Zod Schema |
-| shared/ipc.ts | CH 通道常量、EV 事件常量、CorralApi 类型 |
-| shared/command.ts | shellQuote、resolveVariables、resolveCommandVariables、buildExecScript（上传变量安全注入）、路径与校验脚本工具 |
-| shared/pathCheck.ts | 环境与服务器目录校验目标的变化判断 |
-| shared/errors.ts | AppError、classifySshError、describeExitCode、错误裁剪 |
-| shared/id.ts | nanoid 封装 |
+| 文件                | 职责                                                                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| shared/types.ts     | Server、DevEnv、EnvAction、UploadRule、UploadItem、Run、Settings、事件载荷、默认设置                           |
+| shared/schema.ts    | 服务器、环境、目录、操作、上传、设置、run 过滤等 Zod Schema                                                    |
+| shared/ipc.ts       | CH 通道常量、EV 事件常量、CorralApi 类型                                                                       |
+| shared/command.ts   | shellQuote、resolveVariables、resolveCommandVariables、buildExecScript（上传变量安全注入）、路径与校验脚本工具 |
+| shared/pathCheck.ts | 环境与服务器目录校验目标的变化判断                                                                             |
+| shared/errors.ts    | AppError、classifySshError、describeExitCode、错误裁剪                                                         |
+| shared/id.ts        | nanoid 封装                                                                                                    |
 
 共享层不依赖 Node/Electron，主进程与渲染进程都可使用。
 
@@ -287,26 +287,26 @@ src/main/ipc/index.ts 的 handle() 负责：
 
 ### 7.2 通道分组
 
-| 分组 | 通道 | 说明 |
-| --- | --- | --- |
-| 服务器 | server:list/create/update/remove/test/trustHostKey | 列表返回 ServerSummary；测试支持临时凭据 |
-| 环境 | env:list/create/update/remove/validatePaths | validatePaths 需要真实 SSH |
-| 执行 | run:precheck/start/cancel/list/readLog/exportLog/remove/clear | start 返回 runId，结果走事件 |
-| 设置 | settings:get/update | 合并更新 Settings |
-| 应用 | app:getBootState/openDataDir/exportConfig/copyText | 启动态、数据目录、配置导出、复制日志 |
-| 指纹 | hostkey:decision | 回应 hostkey:challenge |
-| 文件对话框 | dialog:pickFiles/pickDirectory | 返回本地绝对路径，不传文件内容 |
+| 分组       | 通道                                                          | 说明                                     |
+| ---------- | ------------------------------------------------------------- | ---------------------------------------- |
+| 服务器     | server:list/create/update/remove/test/trustHostKey            | 列表返回 ServerSummary；测试支持临时凭据 |
+| 环境       | env:list/create/update/remove/validatePaths                   | validatePaths 需要真实 SSH               |
+| 执行       | run:precheck/start/cancel/list/readLog/exportLog/remove/clear | start 返回 runId，结果走事件             |
+| 设置       | settings:get/update                                           | 合并更新 Settings                        |
+| 应用       | app:getBootState/openDataDir/exportConfig/copyText            | 启动态、数据目录、配置导出、复制日志     |
+| 指纹       | hostkey:decision                                              | 回应 hostkey:challenge                   |
+| 文件对话框 | dialog:pickFiles/pickDirectory                                | 返回本地绝对路径，不传文件内容           |
 
 ### 7.3 主进程到渲染层事件
 
-| 事件 | 载荷 |
-| --- | --- |
-| run:status | runId, status, errorKind?, errorMessage?, exitCode?, durationMs? |
-| run:output | runId, stream: stdout/stderr/system, data |
-| run:progress | runId, phase: upload, fileIndex, fileCount, fileName, transferredBytes, totalBytes |
-| run:done | 完整 Run |
-| hostkey:challenge | 主机、端口、算法、指纹、是否不匹配 |
-| app:notice | 启动损坏、凭据不可用等系统提示 |
+| 事件              | 载荷                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| run:status        | runId, status, errorKind?, errorMessage?, exitCode?, durationMs?                   |
+| run:output        | runId, stream: stdout/stderr/system, data                                          |
+| run:progress      | runId, phase: upload, fileIndex, fileCount, fileName, transferredBytes, totalBytes |
+| run:done          | 完整 Run                                                                           |
+| hostkey:challenge | 主机、端口、算法、指纹、是否不匹配                                                 |
+| app:notice        | 启动损坏、凭据不可用等系统提示                                                     |
 
 Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents 的 effect 清理阶段统一调用。
 
@@ -383,41 +383,41 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 
 不使用 react-router；uiStore 维护当前页面与选中环境，AppLayout 用 Layout.Sider + Menu 切换四个页面。内容区 padding 为 12px，页面主要区块间距为 12px，筛选等次级区块间距为 8px。
 
-| 页面 | 文件 | 主要内容 |
-| --- | --- | --- |
-| 服务器 | pages/servers/ServersPage.tsx、ServerDrawer.tsx | 表格、搜索/筛选、连接测试、新增/编辑/复制/删除、指纹信任 |
-| 开发环境 | pages/envs/EnvsPage.tsx、EnvDrawer.tsx、EnvDetail.tsx、EnvActionsDrawer.tsx | 左树右详情、目录徽标与校验、操作按钮、执行面板、操作配置 |
-| 执行历史 | pages/runs/RunsPage.tsx | 筛选、表格、日志详情抽屉、导出/删除/清空 |
-| 设置 | pages/settings/SettingsPage.tsx | 主题、超时、上传、日志保留、编码、旧算法、数据目录、配置导出 |
+| 页面     | 文件                                                                        | 主要内容                                                     |
+| -------- | --------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 服务器   | pages/servers/ServersPage.tsx、ServerDrawer.tsx                             | 表格、搜索/筛选、连接测试、新增/编辑/复制/删除、指纹信任     |
+| 开发环境 | pages/envs/EnvsPage.tsx、EnvDrawer.tsx、EnvDetail.tsx、EnvActionsDrawer.tsx | 左树右详情、目录徽标与校验、操作按钮、执行面板、操作配置     |
+| 执行历史 | pages/runs/RunsPage.tsx                                                     | 筛选、表格、日志详情抽屉、导出/删除/清空                     |
+| 设置     | pages/settings/SettingsPage.tsx                                             | 主题、超时、上传、日志保留、编码、旧算法、数据目录、配置导出 |
 
 配置操作：EnvActionsDrawer 的编辑、新增、删除、上移/下移都会立即调用 env:update 落盘，抽屉不再需要二次保存；保存失败时保留原列表并提示错误。
 
 ### 10.3 组件
 
-| 组件 | 职责 |
-| --- | --- |
-| LogPanel | 实时日志、ANSI 着色、自动滚动暂停、停止/清屏/复制/导出、上传进度 |
-| AnsiText | 历史日志的 ANSI token 渲染（无 HTML 注入） |
-| RunConsole | 环境详情中的执行面板与停止确认 |
-| StatusBadge | RunStatus 与服务器在线状态统一 Badge |
-| PathEditor | 具名目录增删、key/label/path、必填开关 |
-| ActionEditor | 操作名称、命令、超时、确认、危险标记、变量插入、预览、上传目标规则 |
-| UploadRuleEditor | 操作编辑器中的目标目录与冲突策略配置 |
-| UploadEditor | 执行弹窗中按目标规则选择本次本地文件/目录 |
-| ConfirmRunModal | 本次上传/跳过模式、上传来源或手工远程文件名、预检、上传清单、变量实际值、总大小、解析后命令、缺失文件警告 |
-| HostKeyModal | 首次信任/指纹变化、30 秒倒计时 |
+| 组件             | 职责                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| LogPanel         | 实时日志、ANSI 着色、自动滚动暂停、停止/清屏/复制/导出、上传进度                                          |
+| AnsiText         | 历史日志的 ANSI token 渲染（无 HTML 注入）                                                                |
+| RunConsole       | 环境详情中的执行面板与停止确认                                                                            |
+| StatusBadge      | RunStatus 与服务器在线状态统一 Badge                                                                      |
+| PathEditor       | 具名目录增删、key/label/path、必填开关                                                                    |
+| ActionEditor     | 操作名称、命令、超时、确认、危险标记、变量插入、预览、上传目标规则                                        |
+| UploadRuleEditor | 操作编辑器中的目标目录与冲突策略配置                                                                      |
+| UploadEditor     | 执行弹窗中按目标规则选择本次本地文件/目录                                                                 |
+| ConfirmRunModal  | 本次上传/跳过模式、上传来源或手工远程文件名、预检、上传清单、变量实际值、总大小、解析后命令、缺失文件警告 |
+| HostKeyModal     | 首次信任/指纹变化、30 秒倒计时                                                                            |
 
 ### 10.4 Zustand stores
 
-| Store | 职责 |
-| --- | --- |
-| uiStore | 当前页面、选中环境、简单历史 |
-| settingsStore | Settings 加载与更新 |
-| serversStore | 服务器列表、连接状态缓存、测试连接 |
-| envsStore | 环境列表、目录校验快照恢复与失效 |
-| runsStore | 历史列表、筛选、删除/清空 |
+| Store          | 职责                                               |
+| -------------- | -------------------------------------------------- |
+| uiStore        | 当前页面、选中环境、简单历史                       |
+| settingsStore  | Settings 加载与更新                                |
+| serversStore   | 服务器列表、连接状态缓存、测试连接                 |
+| envsStore      | 环境列表、目录校验快照恢复与失效                   |
+| runsStore      | 历史列表、筛选、删除/清空                          |
 | runStreamStore | 每个 run 的状态、输出行、进度；2MB/2000 行环形裁剪 |
-| hostKeyStore | 当前指纹挑战 |
+| hostKeyStore   | 当前指纹挑战                                       |
 
 ### 10.5 事件桥
 
@@ -453,7 +453,7 @@ hooks/useAppEvents.ts 在 App 挂载时一次性订阅：
 electron-builder.yml：
 
 - Windows NSIS x64，oneClick: false，允许修改安装目录；
-- files 只包含 out/**/*、!out/**/*.map、package.json；
+- files 只包含 out/**/\*、!out/**/*.map、package.json；
 - asar: true、npmRebuild: false；
 - electron-builder CLI 读取根目录的 `electron-builder.env`。本地签名变量通过 shell 或 CI 注入，使用本地文件时在启动 npm 或 electron-builder 前显式加载；
 - 目前未配置自定义图标与代码签名，使用 Electron 默认图标。

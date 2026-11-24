@@ -62,16 +62,14 @@ export function UploadRuleEditor({
         type="dashed"
         icon={<PlusOutlined />}
         onClick={() =>
-          onChange([
-            ...value,
-            { id: newId(), targetDir: defaultTarget, conflict: defaultConflict }
-          ])
+          onChange([...value, { id: newId(), targetDir: defaultTarget, conflict: defaultConflict }])
         }
       >
         添加目标目录
       </Button>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        本地文件或目录将在每次执行时选择；设置命令变量名后，该目标只能选择单个文件，并生成对应的 Name 和 Path 变量。
+        本地文件或目录将在每次执行时选择；设置命令变量名后，该目标只能选择单个文件，并生成对应的
+        Name 和 Path 变量。
       </Typography.Text>
     </Space>
   )

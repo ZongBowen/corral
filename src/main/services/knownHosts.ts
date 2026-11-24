@@ -22,7 +22,10 @@ export class KnownHostsService {
   }
 
   async init(): Promise<void> {
-    const result = await readJsonFile<KnownHostsFile>(this.filePath, () => ({ version: 1, entries: [] }))
+    const result = await readJsonFile<KnownHostsFile>(this.filePath, () => ({
+      version: 1,
+      entries: []
+    }))
     this.entries = Array.isArray(result.data.entries) ? result.data.entries : []
   }
 
@@ -36,7 +39,9 @@ export class KnownHostsService {
 
   async trust(record: HostKeyRecord): Promise<void> {
     const now = new Date().toISOString()
-    const index = this.entries.findIndex((entry) => entry.host === record.host && entry.port === record.port)
+    const index = this.entries.findIndex(
+      (entry) => entry.host === record.host && entry.port === record.port
+    )
     if (index >= 0) {
       this.entries[index] = {
         ...record,

@@ -371,7 +371,10 @@ describe('RunManager', () => {
     expect(run.exitCode).toBe(0)
     expect(run.remotePid).toBe(4321)
     expect(run.logBytes).toBeGreaterThan(0)
-    expect(emit).toHaveBeenCalledWith('run:status', expect.objectContaining({ runId, status: 'success' }))
+    expect(emit).toHaveBeenCalledWith(
+      'run:status',
+      expect.objectContaining({ runId, status: 'success' })
+    )
 
     const chunk = await logs.readChunk(runId, 0, 4096)
     expect(chunk.content).toContain('hello')
