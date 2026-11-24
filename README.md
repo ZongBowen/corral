@@ -6,7 +6,7 @@
 
 ## 开发
 
-项目使用 npm 管理依赖。`.npmrc` 将 npm 源设为 `https://registry.npmmirror.com/`，与锁文件一致。
+项目要求 Node.js 26.13.1 至 26.x 和 npm 12.2.3 至 12.x，Windows 发布使用 Node.js 26.13.1 和 npm 12.2.3。`.npmrc` 将 npm 源设为 `https://registry.npmmirror.com/`，与锁文件一致。
 
     npm ci
     npm run dev

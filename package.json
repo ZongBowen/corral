@@ -6,6 +6,11 @@
   "author": "ZongBowen <zongbowen1992@hotmail.com>",
   "homepage": "https://github.com/ZongBowen/corral",
   "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=26.13.1 <27",
+    "npm": ">=12.2.3 <13"
+  },
+  "packageManager": "npm@12.2.3",
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
