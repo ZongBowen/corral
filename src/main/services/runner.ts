@@ -35,7 +35,7 @@ import type { SshConnectOptions, SshService } from './ssh'
 import type { LogStore, LogWriter } from './logStore'
 import { buildUploadPlan, type UploadPlan } from './uploadPlan'
 import { OutputBatcher } from './batcher'
-import { createTextDecoder, type TextDecoderLike } from './textDecoder'
+import { createTextDecoder } from './textDecoder'
 import { Uploader } from './upload'
 
 const MAX_CONCURRENT = 4

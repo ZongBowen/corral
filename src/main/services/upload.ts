@@ -82,7 +82,7 @@ export class Uploader {
           }
 
           await assertReplaceTarget(sftp, file.targetPath)
-          const backup = await replaceFile(client, tempPath, file.targetPath, item.item, sftp)
+          const backup = await replaceFile(client, tempPath, file.targetPath, item.item)
           if (backup) backups.push(backup)
 
           completedBytes += file.size
@@ -244,8 +244,7 @@ async function replaceFile(
   client: Client,
   tempPath: string,
   target: string,
-  item: UploadItem,
-  sftp: SFTPWrapper
+  item: UploadItem
 ): Promise<string | null> {
   if (item.conflict === 'overwrite') {
     await execScript(client, 'mv -f -- ' + shellQuote(tempPath) + ' ' + shellQuote(target))

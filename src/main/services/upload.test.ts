@@ -45,7 +45,7 @@ class FakeSftp {
 
   fastPut = vi.fn(
     (
-      localPath: string,
+      _localPath: string,
       remotePath: string,
       options: { step?: (n: number, c: number, t: number) => void },
       callback: (error?: Error | null) => void
