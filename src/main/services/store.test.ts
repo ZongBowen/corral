@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PathCheck } from '@shared/types'
 import { StoreService } from './store'
 
@@ -43,6 +44,42 @@ describe('StoreService', () => {
     expect(raw).toContain('"id": "s1"')
     const files = await readdir(dir)
     expect(files.some((name) => name.includes('.tmp-'))).toBe(false)
+  })
+
+  it('reports a failed write and persists later snapshots in submission order', async () => {
+    const store = new StoreService(dir)
+    await store.init()
+    await store.flush()
+    const existing = await readFile(store.filePath, 'utf8')
+    const error = new Error('rename failed')
+    const rename = vi.spyOn(fs, 'rename').mockRejectedValueOnce(error)
+
+    await store.updateSettings({ defaultTimeoutSec: 400 })
+    await expect(store.flush()).rejects.toBe(error)
+    expect(await readFile(store.filePath, 'utf8')).toBe(existing)
+    expect(await readdir(dir)).toEqual(['store.json'])
+
+    await store.updateSettings({ defaultTimeoutSec: 500 })
+    const first = store.flush()
+    await store.updateSettings({ defaultTimeoutSec: 600 })
+    const second = store.flush()
+    await Promise.all([first, second])
+    expect(rename).toHaveBeenCalledTimes(3)
+    expect(JSON.parse(await readFile(store.filePath, 'utf8')).settings.defaultTimeoutSec).toBe(600)
+  })
+
+  it('handles a failed debounced write and saves again after a later mutation', async () => {
+    const store = new StoreService(dir)
+    await store.init()
+    const error = new Error('rename failed')
+    vi.spyOn(fs, 'rename').mockRejectedValueOnce(error)
+    const report = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await store.updateSettings({ defaultTimeoutSec: 400 })
+    await vi.waitFor(() => expect(report).toHaveBeenCalledWith(expect.any(String), error))
+    await store.updateSettings({ defaultTimeoutSec: 500 })
+    await store.flush()
+    expect(JSON.parse(await readFile(store.filePath, 'utf8')).settings.defaultTimeoutSec).toBe(500)
   })
 
   it('backs up corrupt json and starts empty', async () => {

@@ -1,9 +1,16 @@
-import { basename } from 'node:path'
-import type { Client, SFTPWrapper, Stats } from 'ssh2'
+import { posix } from 'node:path'
+import type { Client, ClientChannel, SFTPWrapper, Stats } from 'ssh2'
 import { AppError } from '@shared/errors'
 import { assertSafeRemotePath, joinRemote, shellQuote } from '@shared/command'
-import type { UploadItem, UploadStats } from '@shared/types'
+import type { UploadStats } from '@shared/types'
 import type { PlannedItem, UploadPlan } from './uploadPlan'
+import { waitForUpload } from './uploadWait'
+
+const CLEANUP_TIMEOUT_MS = 10_000
+type WaitForStep = <T>(
+  phase: string,
+  start: (signal: AbortSignal, activity: () => void) => Promise<T>
+) => Promise<T>
 
 export interface UploadProgress {
   fileIndex: number
@@ -29,43 +36,32 @@ export class Uploader {
     options: UploadOptions
   ): Promise<UploadStats> {
     const started = Date.now()
-    const tempPaths: string[] = []
+    const tempPaths = new Set<string>()
     const backups: string[] = []
     const totalBytes = plan.totalBytes
     let completedBytes = 0
     let fileIndex = 0
     let sequence = 0
-
-    const checkAbort = (): void => {
-      if (options.signal.aborted) throw new AppError('canceled', '上传已取消')
-    }
+    const wait: WaitForStep = (phase, start) => waitForUpload({ client, phase, ...options }, start)
 
     try {
       for (const item of plan.items) {
-        checkAbort()
-        await mkdirp(sftp, item.targetDir)
+        await mkdirp(sftp, item.targetDir, wait)
         for (const dir of item.dirs) {
-          checkAbort()
-          await mkdirp(sftp, joinRemote(item.targetDir, dir))
+          await mkdirp(sftp, joinRemote(item.targetDir, dir), wait)
         }
 
         for (const file of item.files) {
-          checkAbort()
           fileIndex += 1
           const tempPath = joinRemote(
-            item.targetDir,
-            '.corral-tmp-' +
-              options.runId.slice(0, 8) +
-              '-' +
-              String(sequence) +
-              '-' +
-              basename(file.rel)
+            posix.dirname(file.targetPath),
+            '.corral-tmp-' + options.runId + '-' + String(sequence)
           )
           sequence += 1
-          tempPaths.push(tempPath)
+          tempPaths.add(tempPath)
 
           let stepBytes = 0
-          await fastPut(sftp, file.localPath, tempPath, options, (transferred) => {
+          await fastPut(sftp, file.localPath, tempPath, wait, (transferred) => {
             stepBytes = transferred
             options.onProgress({
               fileIndex,
@@ -76,14 +72,66 @@ export class Uploader {
             })
           })
 
-          const remoteStat = await stat(sftp, tempPath)
+          const remoteStat = await wait('校验上传大小', () => stat(sftp, tempPath))
           if (remoteStat.size !== file.size) {
             throw new AppError('upload', '上传字节数不一致：' + file.rel)
           }
 
-          await assertReplaceTarget(sftp, file.targetPath)
-          const backup = await replaceFile(client, tempPath, file.targetPath, item.item)
-          if (backup) backups.push(backup)
+          await assertReplaceTarget(sftp, file.targetPath, wait)
+          const backupCopy = tempPath + '.bak'
+          let backup: string | undefined
+          let phase = '备份'
+          let dispatched = false
+          try {
+            if (item.item.conflict === 'backup') {
+              tempPaths.add(backupCopy)
+              backup = await wait('远端备份', (signal, activity) => {
+                dispatched = true
+                return backupFile(
+                  client,
+                  sftp,
+                  file.targetPath,
+                  backupCopy,
+                  signal,
+                  activity,
+                  options.idleTimeoutMs
+                )
+              })
+              tempPaths.delete(backupCopy)
+              if (backup) backups.push(backup)
+            }
+            phase = '替换'
+            dispatched = false
+            await wait('远端替换', (signal) => {
+              dispatched = true
+              return execScript(
+                client,
+                'mv -fT -- ' + shellQuote(tempPath) + ' ' + shellQuote(file.targetPath),
+                signal
+              )
+            })
+            tempPaths.delete(tempPath)
+          } catch (error) {
+            const uncertain = dispatched && !(error instanceof RemoteExitError)
+            if (uncertain) {
+              tempPaths.delete(tempPath)
+              tempPaths.delete(backupCopy)
+            }
+            const detail =
+              phase +
+              (uncertain ? '结果未知' : '失败') +
+              '，目标：' +
+              file.targetPath +
+              '，临时文件：' +
+              tempPath +
+              (backup ? '，备份：' + backup : '') +
+              (phase === '备份' ? '，备份临时文件：' + backupCopy : '')
+            options.onSystem(detail)
+            throw new AppError(
+              error instanceof AppError ? error.code : 'upload',
+              detail + '。' + errorMessage(error)
+            )
+          }
 
           completedBytes += file.size
           stepBytes = 0
@@ -107,9 +155,24 @@ export class Uploader {
         backups: backups.slice(0, 200)
       }
     } catch (error) {
-      await cleanup(client, tempPaths)
-      if (options.signal.aborted) {
-        throw new AppError('canceled', '上传已取消')
+      try {
+        sftp.end()
+      } catch {
+        // The SSH connection may already be closed.
+      }
+      if (tempPaths.size > 0) {
+        try {
+          if (error instanceof AppError && error.code === 'network') throw error
+          await waitForUpload(
+            { client, phase: '清理临时文件', idleTimeoutMs: CLEANUP_TIMEOUT_MS },
+            (signal) =>
+              execScript(client, 'rm -f -- ' + [...tempPaths].map(shellQuote).join(' '), signal)
+          )
+        } catch (cleanupError) {
+          options.onSystem(
+            '临时文件清理未确认：' + [...tempPaths].join('、') + '。' + errorMessage(cleanupError)
+          )
+        }
       }
       if (error instanceof AppError) throw error
       const message = errorMessage(error)
@@ -123,84 +186,43 @@ export class Uploader {
   }
 }
 
-async function fastPut(
+function fastPut(
   sftp: SFTPWrapper,
   localPath: string,
   remotePath: string,
-  options: UploadOptions,
+  wait: WaitForStep,
   onBytes: (transferred: number) => void
 ): Promise<void> {
-  let lastActivity = Date.now()
-  let idle = false
-  let aborted = false
-  let settled = false
-
-  const watchdog = setInterval(() => {
-    if (Date.now() - lastActivity > options.idleTimeoutMs) {
-      idle = true
-      try {
-        sftp.end()
-      } catch {
-        // ignore
-      }
-    }
-  }, 1000)
-
-  const abortHandler = (): void => {
-    aborted = true
-    try {
-      sftp.end()
-    } catch {
-      // ignore
-    }
-  }
-  options.signal.addEventListener('abort', abortHandler, { once: true })
-
-  await new Promise<void>((resolve, reject) => {
-    const done = (error?: Error | null): void => {
-      if (settled) return
-      settled = true
-      clearInterval(watchdog)
-      options.signal.removeEventListener('abort', abortHandler)
-      if (error) {
-        if (idle) {
-          reject(
-            new AppError(
-              'timeout',
-              '上传空闲超时（' + String(Math.round(options.idleTimeoutMs / 1000)) + 's 无进度）'
-            )
-          )
-        } else if (aborted || options.signal.aborted) {
-          reject(new AppError('canceled', '上传已取消'))
-        } else {
-          reject(error)
-        }
-        return
-      }
-      resolve()
-    }
-
-    try {
-      sftp.fastPut(
-        localPath,
-        remotePath,
-        {
-          mode: 0o644,
-          concurrency: 8,
-          step: (transferred: number) => {
-            lastActivity = Date.now()
-            onBytes(transferred)
+  return wait(
+    '文件传输',
+    (signal, activity) =>
+      new Promise<void>((resolve, reject) => {
+        let lastBytes = 0
+        let done = false
+        sftp.fastPut(
+          localPath,
+          remotePath,
+          {
+            mode: 0o644,
+            concurrency: 8,
+            step: (transferred: number) => {
+              if (done || signal.aborted || transferred <= lastBytes) return
+              lastBytes = transferred
+              activity()
+              onBytes(transferred)
+            }
+          },
+          (error) => {
+            done = true
+            if (error) reject(error)
+            else resolve()
           }
-        },
-        (error) => done(error)
-      )
-    } catch (error) {
-      done(error as Error)
-    }
-  })
+        )
+      })
+  )
 }
 
-export async function mkdirp(sftp: SFTPWrapper, dir: string): Promise<void> {
+async function mkdirp(sftp: SFTPWrapper, dir: string, wait: WaitForStep): Promise<void> {
   assertSafeRemotePath(dir)
   if (dir === '/') return
   const parts = dir.split('/').filter(Boolean)
@@ -208,7 +230,7 @@ export async function mkdirp(sftp: SFTPWrapper, dir: string): Promise<void> {
   for (const part of parts) {
     current += '/' + part
     try {
-      const info = await lstat(sftp, current)
+      const info = await wait('检查远端目录', () => lstat(sftp, current))
       if (info.isSymbolicLink()) {
         throw new AppError('upload', '目标路径包含符号链接：' + current)
       }
@@ -217,7 +239,7 @@ export async function mkdirp(sftp: SFTPWrapper, dir: string): Promise<void> {
       }
     } catch (error) {
       if (isNotFound(error)) {
-        await mkdir(sftp, current)
+        await wait('创建远端目录', () => mkdir(sftp, current))
         continue
       }
       throw error
@@ -225,9 +247,13 @@ export async function mkdirp(sftp: SFTPWrapper, dir: string): Promise<void> {
   }
 }
 
-async function assertReplaceTarget(sftp: SFTPWrapper, target: string): Promise<void> {
+async function assertReplaceTarget(
+  sftp: SFTPWrapper,
+  target: string,
+  wait: WaitForStep
+): Promise<void> {
   try {
-    const info = await lstat(sftp, target)
+    const info = await wait('检查替换目标', () => lstat(sftp, target))
     if (info.isSymbolicLink()) {
       throw new AppError('upload', '目标路径是符号链接，已中止：' + target)
     }
@@ -240,82 +266,142 @@ async function assertReplaceTarget(sftp: SFTPWrapper, target: string): Promise<v
   }
 }
 
-async function replaceFile(
+async function backupFile(
   client: Client,
-  tempPath: string,
+  sftp: SFTPWrapper,
   target: string,
-  item: UploadItem
-): Promise<string | null> {
-  if (item.conflict === 'overwrite') {
-    await execScript(client, 'mv -f -- ' + shellQuote(tempPath) + ' ' + shellQuote(target))
-    return null
-  }
-
+  copyPath: string,
+  signal: AbortSignal,
+  activity: () => void,
+  idleTimeoutMs: number
+): Promise<string | undefined> {
   const stamp = formatTimestamp()
   const script = [
     'target=' + shellQuote(target),
-    'tmp=' + shellQuote(tempPath),
-    'if [ -e "$target" ] || [ -L "$target" ]; then',
-    '  b="$target.bak-' + stamp + '"',
-    '  i=1',
-    '  while [ -e "$b" ]; do b="$target.bak-' + stamp + '-$i"; i=$((i+1)); done',
-    '  mv -- "$target" "$b" && echo "CORRAL_BAK:$b" || exit 3',
-    'fi',
-    'mv -f -- "$tmp" "$target"'
+    'copy=' + shellQuote(copyPath),
+    'base="$target.bak-' + stamp + '"',
+    '[ -e "$target" ] || [ -L "$target" ] || exit 0',
+    '[ -f "$target" ] && [ ! -L "$target" ] || exit 3',
+    'b="$base"',
+    'i=0',
+    'while true; do',
+    '  if [ ! -e "$b" ] && [ ! -L "$b" ]; then',
+    '    if [ ! -e "$copy" ] && ln -T -- "$target" "$b" 2>/dev/null; then break; fi',
+    '    if [ ! -e "$b" ] && [ ! -L "$b" ]; then',
+    '      [ -e "$copy" ] || cp -pT -- "$target" "$copy" || exit 3',
+    '      if mv -nT -- "$copy" "$b" && [ ! -e "$copy" ]; then break; fi',
+    '      [ -e "$copy" ] || exit 3',
+    '      [ -e "$b" ] || [ -L "$b" ] || exit 3',
+    '    fi',
+    '  fi',
+    '  i=$((i+1))',
+    '  b="$base-$i"',
+    'done',
+    'printf "CORRAL_BAK:%s\\n" "$b"'
   ].join('\n')
 
-  const result = await execScript(client, script)
-  const backup = result.stdout.split(/\r?\n/).find((line) => line.startsWith('CORRAL_BAK:'))
-  return backup ? backup.slice('CORRAL_BAK:'.length) : null
+  let checking = false
+  let copiedBytes = 0
+  const progress = setInterval(
+    () => {
+      if (checking) return
+      checking = true
+      void stat(sftp, copyPath)
+        .then(
+          (info) => {
+            if (signal.aborted || info.size <= copiedBytes) return
+            copiedBytes = info.size
+            activity()
+          },
+          () => undefined
+        )
+        .finally(() => {
+          checking = false
+        })
+    },
+    Math.max(1, Math.min(1000, idleTimeoutMs / 4))
+  )
+
+  try {
+    const stdout = await execScript(client, script, signal)
+    const backup = stdout.split(/\r?\n/).find((line) => line.startsWith('CORRAL_BAK:'))
+    return backup?.slice('CORRAL_BAK:'.length)
+  } finally {
+    clearInterval(progress)
+  }
 }
 
-async function execScript(
-  client: Client,
-  script: string
-): Promise<{ stdout: string; stderr: string }> {
-  return await new Promise((resolve, reject) => {
-    client.exec('bash -lc ' + shellQuote(script), { pty: false }, (error, stream) => {
-      if (error) {
-        reject(new AppError('upload', '远端命令执行失败：' + error.message))
-        return
+class RemoteExitError extends AppError {
+  constructor(code: number, stderr: string) {
+    super('upload', '远端命令失败（退出码 ' + String(code) + '）：' + stderr)
+  }
+}
+
+async function execScript(client: Client, script: string, signal: AbortSignal): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    let channel: ClientChannel | undefined
+    let settled = false
+    const close = (): void => {
+      try {
+        channel?.close()
+      } catch {
+        // The channel may already be closed.
       }
-      const out: Buffer[] = []
-      const err: Buffer[] = []
-      stream.on('data', (data: Buffer) => out.push(data))
-      stream.stderr.on('data', (data: Buffer) => err.push(data))
-      stream.on('close', (code: number | null) => {
-        if (code !== 0) {
-          reject(
-            new AppError(
-              'upload',
-              '远端替换失败（退出码 ' +
-                String(code) +
-                '）：' +
-                Buffer.concat(err).toString('utf8').trim()
-            )
-          )
+    }
+    const done = (complete: () => void): void => {
+      if (settled) return
+      settled = true
+      signal.removeEventListener('abort', abort)
+      complete()
+    }
+    const abort = (): void =>
+      done(() => {
+        reject(signal.reason)
+        close()
+      })
+    signal.addEventListener('abort', abort, { once: true })
+    try {
+      client.exec('bash -lc ' + shellQuote(script), { pty: false }, (error, stream) => {
+        if (signal.aborted) {
+          if (!error) {
+            channel = stream
+            stream.on('error', () => undefined)
+            close()
+          }
           return
         }
-        resolve({
-          stdout: Buffer.concat(out).toString('utf8'),
-          stderr: Buffer.concat(err).toString('utf8')
+        if (error) {
+          done(() => reject(new AppError('upload', '远端命令执行失败：' + error.message)))
+          return
+        }
+        channel = stream
+        const out: Buffer[] = []
+        const err: Buffer[] = []
+        stream.on('data', (data: Buffer) => {
+          if (!settled) out.push(data)
+        })
+        stream.stderr.on('data', (data: Buffer) => {
+          if (!settled) err.push(data)
+        })
+        stream.on('close', (code?: number | null) => {
+          done(() => {
+            if (typeof code !== 'number') reject(new AppError('network', '远端命令未返回退出状态'))
+            else if (code !== 0)
+              reject(new RemoteExitError(code, Buffer.concat(err).toString('utf8').trim()))
+            else resolve(Buffer.concat(out).toString('utf8'))
+          })
+        })
+        stream.on('error', (streamError: Error) => {
+          done(() => {
+            reject(new AppError('network', '远端命令中断：' + streamError.message))
+            close()
+          })
         })
       })
-      stream.on('error', (streamError: Error) => {
-        reject(new AppError('upload', '远端替换中断：' + streamError.message))
-      })
-    })
+    } catch (error) {
+      done(() => reject(error))
+    }
   })
-}
-
-async function cleanup(client: Client, tempPaths: string[]): Promise<void> {
-  if (tempPaths.length === 0) return
-  try {
-    const command = 'rm -f -- ' + tempPaths.map(shellQuote).join(' ')
-    await execScript(client, command)
-  } catch {
-    // best effort cleanup
-  }
 }
 
 function lstat(sftp: SFTPWrapper, path: string): Promise<Stats> {

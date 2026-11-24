@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { dirname } from 'node:path'
 
 export function timestampForFile(date = new Date()): string {
@@ -7,15 +8,22 @@ export function timestampForFile(date = new Date()): string {
 
 export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
   await fs.mkdir(dirname(filePath), { recursive: true })
-  const tmp = filePath + '.tmp-' + String(process.pid) + '-' + String(Date.now())
-  const handle = await fs.open(tmp, 'w')
+  const tmp = filePath + '.tmp-' + randomUUID()
+  const handle = await fs.open(tmp, 'wx')
   try {
-    await handle.writeFile(content, 'utf8')
-    await handle.sync()
-  } finally {
+    try {
+      await handle.writeFile(content, 'utf8')
+      await handle.sync()
+    } catch (error) {
+      await handle.close().catch(() => undefined)
+      throw error
+    }
     await handle.close()
+    await fs.rename(tmp, filePath)
+  } catch (error) {
+    await fs.unlink(tmp).catch(() => undefined)
+    throw error
   }
-  await fs.rename(tmp, filePath)
 }
 
 export interface ReadJsonResult<T> {

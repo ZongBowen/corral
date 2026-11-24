@@ -37,6 +37,7 @@ import { buildUploadPlan, type UploadPlan } from './uploadPlan'
 import { OutputBatcher } from './batcher'
 import { createTextDecoder } from './textDecoder'
 import { Uploader } from './upload'
+import { waitForUpload } from './uploadWait'
 
 const MAX_CONCURRENT = 4
 
@@ -65,7 +66,6 @@ export interface RunnerDeps {
 
 interface QueueEntry {
   runId: string
-  envId: string
 }
 
 interface ActiveRun {
@@ -93,7 +93,7 @@ interface ActiveRun {
 
 export class RunManager {
   private active = new Map<string, ActiveRun>()
-  private envLocks = new Set<string>()
+  private envLocks = new Map<string, string>()
   private queue: QueueEntry[] = []
   private runningCount = 0
 
@@ -154,77 +154,96 @@ export class RunManager {
     if (this.envLocks.has(envId)) {
       throw new AppError('config', '该环境已有执行中的任务')
     }
-    const env = this.findEnv(envId)
-    const action = this.findAction(env, actionId)
-    const server = this.findServer(env.serverId)
-    const vars = buildVars(env)
-    this.validateUploads(action, uploads, uploadMode, manualUploadFiles)
-    const uploadSnapshot = uploads.map((item) => ({ ...item }))
-    const manualUploadSnapshot = manualUploadFiles.map((item) => ({ ...item }))
-    const uploadPlan = await buildUploadPlan(uploadSnapshot, vars)
-    if (uploadPlan.missing.length > 0) {
-      throw new AppError('upload', '本地文件不存在：' + uploadPlan.missing.join('、'))
-    }
-    const uploadVariables =
-      uploadMode === 'skip'
-        ? buildManualUploadVariables(action, vars, manualUploadFiles)
-        : buildUploadVariables(action, uploadPlan)
-    const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
-    if (resolved.missing.length > 0) {
-      throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
+    const runId = newId()
+    this.envLocks.set(envId, runId)
+    let inserted = false
+    let ctx: ActiveRun
+    try {
+      const env = this.findEnv(envId)
+      const action = this.findAction(env, actionId)
+      const server = this.findServer(env.serverId)
+      const vars = buildVars(env)
+      this.validateUploads(action, uploads, uploadMode, manualUploadFiles)
+      const uploadSnapshot = uploads.map((item) => ({ ...item }))
+      const manualUploadSnapshot = manualUploadFiles.map((item) => ({ ...item }))
+      const uploadPlan = await buildUploadPlan(uploadSnapshot, vars)
+      if (uploadPlan.missing.length > 0) {
+        throw new AppError('upload', '本地文件不存在：' + uploadPlan.missing.join('、'))
+      }
+      const uploadVariables =
+        uploadMode === 'skip'
+          ? buildManualUploadVariables(action, vars, manualUploadFiles)
+          : buildUploadVariables(action, uploadPlan)
+      const resolved = resolveCommandVariables(action.command, vars, uploadVariables)
+      if (resolved.missing.length > 0) {
+        throw new AppError('config', '命令引用了未定义的变量：' + resolved.missing.join(', '))
+      }
+
+      const run: Run = {
+        id: runId,
+        envId: env.id,
+        envName: env.name,
+        serverId: server.id,
+        serverName: server.name,
+        actionId: action.id,
+        actionName: action.name,
+        command: action.command,
+        resolvedCommand: resolved.preview,
+        uploadMode,
+        manualUploadFiles: manualUploadSnapshot,
+        uploadVariables,
+        uploads: uploadSnapshot,
+        status: 'queued',
+        startedAt: new Date(this.now()).toISOString()
+      }
+
+      ctx = {
+        run,
+        env,
+        action,
+        uploadPlan,
+        uploadVariables,
+        executionCommand: resolved.command,
+        server,
+        password: await this.deps.vault.getPassword(server.id),
+        force,
+        abort: new AbortController(),
+        client: null,
+        stream: null,
+        sftp: null,
+        pid: null,
+        writer: null,
+        batcher: null,
+        timers: new Set(),
+        startedAtMs: this.now(),
+        cancelRequested: false,
+        timedOut: false
+      }
+      await this.deps.store.mutate((state) => {
+        state.runs.push(ctx.run)
+        inserted = true
+      })
+      await this.deps.store.flush()
+    } catch (error) {
+      try {
+        if (inserted) {
+          await this.deps.store.mutate((state) => {
+            state.runs = state.runs.filter((run) => run.id !== runId)
+          })
+          await this.deps.store.flush()
+        }
+      } catch (rollbackError) {
+        console.error('[corral] could not roll back run ' + runId, rollbackError)
+      } finally {
+        this.releaseEnvLock(envId, runId)
+      }
+      throw error
     }
 
-    const run: Run = {
-      id: newId(),
-      envId: env.id,
-      envName: env.name,
-      serverId: server.id,
-      serverName: server.name,
-      actionId: action.id,
-      actionName: action.name,
-      command: action.command,
-      resolvedCommand: resolved.preview,
-      uploadMode,
-      manualUploadFiles: manualUploadSnapshot,
-      uploadVariables,
-      uploads: uploadSnapshot,
-      status: 'queued',
-      startedAt: new Date(this.now()).toISOString()
-    }
-
-    const ctx: ActiveRun = {
-      run,
-      env,
-      action,
-      uploadPlan,
-      uploadVariables,
-      executionCommand: resolved.command,
-      server,
-      password: await this.deps.vault.getPassword(server.id),
-      force,
-      abort: new AbortController(),
-      client: null,
-      stream: null,
-      sftp: null,
-      pid: null,
-      writer: this.deps.logs.open(run.id),
-      batcher: null,
-      timers: new Set(),
-      startedAtMs: this.now(),
-      cancelRequested: false,
-      timedOut: false
-    }
-
-    this.envLocks.add(envId)
-    this.active.set(run.id, ctx)
-    await this.deps.store.mutate((state) => {
-      state.runs.push(run)
-    })
-    await this.deps.store.flush()
-
-    this.queue.push({ runId: run.id, envId })
+    this.active.set(runId, ctx)
+    this.queue.push({ runId })
     this.pump()
-    return { runId: run.id }
+    return { runId }
   }
 
   async cancel(runId: string): Promise<void> {
@@ -241,16 +260,9 @@ export class RunManager {
 
     ctx.cancelRequested = true
     ctx.abort.abort()
+    if (ctx.run.status === 'uploading') return
     if (ctx.stream) {
       await this.terminate(ctx)
-      return
-    }
-    if (ctx.sftp) {
-      try {
-        ctx.sftp.end()
-      } catch {
-        // ignore
-      }
       return
     }
     if (ctx.client) {
@@ -308,6 +320,10 @@ export class RunManager {
     return this.envLocks.has(envId)
   }
 
+  private releaseEnvLock(envId: string, runId: string): void {
+    if (this.envLocks.get(envId) === runId) this.envLocks.delete(envId)
+  }
+
   private pump(): void {
     while (this.runningCount < MAX_CONCURRENT) {
       const entry = this.queue.shift()
@@ -315,10 +331,14 @@ export class RunManager {
       const ctx = this.active.get(entry.runId)
       if (!ctx || ctx.run.status !== 'queued') continue
       this.runningCount += 1
-      void this.execute(ctx).finally(() => {
-        this.runningCount -= 1
-        this.pump()
-      })
+      void this.execute(ctx)
+        .catch((error: unknown) =>
+          console.error('[corral] could not finish run ' + ctx.run.id, error)
+        )
+        .finally(() => {
+          this.runningCount -= 1
+          this.pump()
+        })
     }
   }
 
@@ -331,6 +351,7 @@ export class RunManager {
     })
     try {
       this.setStatus(ctx, 'connecting')
+      ctx.writer = this.deps.logs.open(ctx.run.id)
       if (ctx.abort.signal.aborted) throw new AppError('canceled', '已取消')
       if (!ctx.password) {
         throw new AppError('auth', '密码不可用，请重新输入密码')
@@ -402,15 +423,24 @@ export class RunManager {
 
   private async upload(ctx: ActiveRun, settings: Settings): Promise<void> {
     if (!ctx.client) throw new AppError('upload', '连接已关闭')
+    const client = ctx.client
     const plan = ctx.uploadPlan
-    const sftp = await this.deps.ssh.openSftp(ctx.client)
+    const idleTimeoutMs = settings.uploadIdleTimeoutSec * 1000
+    const sftp = await waitForUpload(
+      { client, signal: ctx.abort.signal, idleTimeoutMs, phase: '打开 SFTP' },
+      async (signal) => {
+        const session = await this.deps.ssh.openSftp(client)
+        if (signal.aborted) session.end()
+        return session
+      }
+    )
     ctx.sftp = sftp
     const uploader = new Uploader()
     let lastProgressAt = 0
-    const stats = await uploader.run(ctx.client, sftp, plan, {
+    const stats = await uploader.run(client, sftp, plan, {
       runId: ctx.run.id,
       signal: ctx.abort.signal,
-      idleTimeoutMs: settings.uploadIdleTimeoutSec * 1000,
+      idleTimeoutMs,
       onProgress: (progress) => {
         const now = this.now()
         if (progress.transferredBytes < progress.totalBytes && now - lastProgressAt < 100) return
@@ -538,11 +568,15 @@ export class RunManager {
 
   private handleFailure(ctx: ActiveRun, error: unknown): void {
     if (isTerminal(ctx.run.status)) return
-    if (ctx.cancelRequested || ctx.abort.signal.aborted) {
+    if (
+      (error instanceof AppError && error.code === 'canceled') ||
+      (ctx.run.status !== 'uploading' && (ctx.cancelRequested || ctx.abort.signal.aborted))
+    ) {
       this.setStatus(ctx, 'canceled', { errorMessage: '已取消' })
       return
     }
     if (error instanceof AppError && error.code === 'timeout') {
+      this.system(ctx, error.message)
       this.setStatus(ctx, 'timeout', { errorMessage: error.message })
       return
     }
@@ -622,10 +656,16 @@ export class RunManager {
       ctx.client = null
     }
     ctx.stream = null
-    this.envLocks.delete(ctx.env.id)
+    this.releaseEnvLock(ctx.run.envId, ctx.run.id)
     this.active.delete(ctx.run.id)
-    await this.deps.store.flush()
-    this.deps.emit(EV.runDone, ctx.run)
+    try {
+      await this.deps.store.flush()
+    } catch (error) {
+      console.error('[corral] could not save terminal run ' + ctx.run.id, error)
+      this.deps.emit(EV.appNotice, { level: 'error', message: '执行已结束，但保存执行记录失败' })
+    } finally {
+      this.deps.emit(EV.runDone, ctx.run)
+    }
   }
 
   private system(ctx: ActiveRun, text: string): void {

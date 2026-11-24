@@ -86,7 +86,9 @@ export class StoreService {
     if (this.timer) clearTimeout(this.timer)
     this.timer = setTimeout(() => {
       this.timer = null
-      void this.flush()
+      void this.flush().catch((error: unknown) => {
+        console.error('[corral] could not save store', error)
+      })
     }, 300)
   }
 
@@ -96,8 +98,9 @@ export class StoreService {
       this.timer = null
     }
     const payload = JSON.stringify(this.state, null, 2)
-    this.writing = this.writing.then(() => writeFileAtomic(this.filePath, payload))
-    return this.writing
+    const write = this.writing.then(() => writeFileAtomic(this.filePath, payload))
+    this.writing = write.catch(() => undefined)
+    return write
   }
 
   async close(): Promise<void> {

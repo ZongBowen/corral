@@ -1,4 +1,4 @@
-import type { ServerSummary } from '@shared/types'
+import type { Server, ServerSummary } from '@shared/types'
 import { AppError } from '@shared/errors'
 import { CH } from '@shared/ipc'
 import { serverPathCheckTargetChanged } from '@shared/pathCheck'
@@ -40,12 +40,11 @@ export function registerServerIpc(ctx: AppContext): void {
   })
 
   handle(ctx, CH.serverUpdate, serverUpdatePayloadSchema, async ({ id, input }) => {
-    const server = ctx.store.getState().servers.find((item) => item.id === id)
-    if (!server) throw new AppError('config', '服务器不存在')
+    if (!ctx.store.getState().servers.some((item) => item.id === id)) {
+      throw new AppError('config', '服务器不存在')
+    }
     const { password, clearPassword, ...rest } = input
     const now = new Date().toISOString()
-    const hostChanged = server.host !== rest.host || server.port !== rest.port
-    const pathCheckTargetChanged = serverPathCheckTargetChanged(server, rest)
 
     if (clearPassword) {
       await ctx.vault.remove(id)
@@ -53,9 +52,12 @@ export function registerServerIpc(ctx: AppContext): void {
       await ctx.vault.setPassword(id, password)
     }
 
+    const target = ctx.store.getState().servers.find((item) => item.id === id)
+    if (!target) throw new AppError('config', '服务器不存在')
+    const oldEndpoint = { host: target.host, port: target.port }
+    const hostChanged = oldEndpoint.host !== rest.host || oldEndpoint.port !== rest.port
+    const pathCheckTargetChanged = serverPathCheckTargetChanged(target, rest)
     await ctx.store.mutate((state) => {
-      const target = state.servers.find((item) => item.id === id)
-      if (!target) return
       Object.assign(target, rest, { tags: rest.tags ?? target.tags, updatedAt: now })
       if (pathCheckTargetChanged) {
         for (const env of state.envs) {
@@ -63,17 +65,15 @@ export function registerServerIpc(ctx: AppContext): void {
         }
       }
     })
-    if (hostChanged) {
-      await ctx.knownHosts.remove(server.host, server.port)
-    }
     await ctx.store.flush()
-    const updated = ctx.store.getState().servers.find((item) => item.id === id)
-    return await summarize(ctx, updated!)
+    if (hostChanged) await removeUnreferencedHostKey(ctx, oldEndpoint)
+    return await summarize(ctx, target)
   })
 
   handle(ctx, CH.serverRemove, idSchema, async (id) => {
     const server = ctx.store.getState().servers.find((item) => item.id === id)
     if (!server) throw new AppError('config', '服务器不存在')
+    const oldEndpoint = { host: server.host, port: server.port }
     await ctx.store.mutate((state) => {
       state.servers = state.servers.filter((item) => item.id !== id)
       for (const env of state.envs) {
@@ -82,8 +82,8 @@ export function registerServerIpc(ctx: AppContext): void {
       state.envs = state.envs.filter((env) => env.serverId !== id)
     })
     await ctx.vault.remove(id)
-    await ctx.knownHosts.remove(server.host, server.port)
     await ctx.store.flush()
+    await removeUnreferencedHostKey(ctx, oldEndpoint)
   })
 
   handle(ctx, CH.serverTest, serverTestPayloadSchema, async (payload) => {
@@ -127,10 +127,16 @@ export function registerServerIpc(ctx: AppContext): void {
   })
 }
 
-async function summarize(
+async function removeUnreferencedHostKey(
   ctx: AppContext,
-  server: import('@shared/types').Server
-): Promise<ServerSummary> {
+  { host, port }: Pick<Server, 'host' | 'port'>
+): Promise<void> {
+  if (ctx.store.getState().servers.some((server) => server.host === host && server.port === port))
+    return
+  await ctx.knownHosts.remove(host, port)
+}
+
+async function summarize(ctx: AppContext, server: Server): Promise<ServerSummary> {
   return {
     ...server,
     hasPassword: ctx.vault.has(server.id),

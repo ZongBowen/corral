@@ -16,6 +16,7 @@ export function fingerprint(key: Buffer | string): string {
 export class KnownHostsService {
   readonly filePath: string
   private entries: HostKeyRecord[] = []
+  private writing: Promise<void> = Promise.resolve()
 
   constructor(readonly dataDir: string) {
     this.filePath = join(dataDir, 'known-hosts.json')
@@ -70,6 +71,9 @@ export class KnownHostsService {
 
   async flush(): Promise<void> {
     const payload: KnownHostsFile = { version: 1, entries: this.entries }
-    await writeFileAtomic(this.filePath, JSON.stringify(payload, null, 2))
+    const snapshot = JSON.stringify(payload, null, 2)
+    const write = this.writing.then(() => writeFileAtomic(this.filePath, snapshot))
+    this.writing = write.catch(() => undefined)
+    return write
   }
 }

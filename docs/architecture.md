@@ -72,6 +72,7 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
     │  │  │  ├─ hostKeyBroker.ts    # 指纹确认挑战
     │  │  │  ├─ uploadPlan.ts       # 本地文件树预检
     │  │  │  ├─ upload.ts           # SFTP 上传/备份/替换
+    │  │  │  ├─ uploadWait.ts       # 上传阶段的空闲截止时间与取消
     │  │  │  ├─ runner.ts           # 执行状态机、队列、取消、超时
     │  │  │  ├─ logStore.ts         # JSONL 日志读写
     │  │  │  ├─ textDecoder.ts      # UTF-8/GBK 流式解码
@@ -170,6 +171,7 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
 - 目录手动校验快照按 envId 保存；目录、SSH 目标或登录账号变化以及环境删除时失效，配置导出不包含快照。
 - 写策略：writeFileAtomic 先写临时文件、fsync，再 rename 覆盖。
 - 写节流：mutate() 后 300ms 防抖；flush() 立即落盘，退出前调用。
+- 快照按提交顺序写入。单次写入失败时，显式调用得到原始错误，防抖保存写诊断日志，后续提交继续写入。
 - 损坏恢复：JSON 读取失败时重命名为 store.corrupt-<timestamp>.json，以空库启动并通知渲染层。
 - 迁移：补齐旧操作字段；将旧本地上传项按目标目录和冲突策略去重为上传规则，移除操作中的本地路径。
 - exportConfig() 导出不含密码的配置快照。
@@ -185,7 +187,7 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
 
 - 计算 SHA256:<base64> 主机指纹，与 ssh-keygen -lf 格式一致。
 - known-hosts.json 保存 host、port、keyType、fingerprint、firstSeenAt、lastSeenAt。
-- trust/touch/remove/list；服务器删除或地址变更时清理旧记录。
+- 指纹按主机与端口共享，变更地址或删除服务器后，仅在旧地址无剩余配置引用时清理。信任、更新时间和删除按快照提交顺序落盘。
 
 ### 5.4 SshService（services/ssh.ts）
 
@@ -216,20 +218,20 @@ uploadPlan.ts 只做本地预检，不建立 SSH：
 upload.ts 负责实际传输：
 
 - mkdirp 逐级创建远端目录（0755），并检查路径组件是否为符号链接；
-- 文件先写入 targetDir/.corral-tmp-<runId8>-<seq>-<name>；
+- 文件先写入最终目标同目录的 `.corral-tmp-<runId>-<seq>`；
 - fastPut 使用 mode 0644、concurrency 8、step 回调上报字节进度；
 - 写完用远端 stat 校验临时文件大小；
-- backup：mv target target.bak-yyyyMMdd-HHmmss，重名追加 -1、-2；
-- overwrite：mv -f temp target；
+- `backup` 先为旧目标建立同目录硬链接。硬链接失败时用临时副本发布备份。重名追加序号，备份完成后再用同目录重命名安装新文件；
+- `overwrite` 直接用同目录重命名安装新文件；
 - 目录上传按文件级合并，保留目标目录中多余文件；
-- 失败或取消时尽力删除本次临时文件，已完成替换不回滚；
-- 上传空闲超过设置值（默认 60s）终止。
+- 失败或取消时复用可用连接，最多等待 10 秒清理临时文件。保留已完成替换。替换结果未知时保留相关临时文件并记录路径；
+- 打开 SFTP、目录操作、传输、校验、备份和替换各有空闲截止时间（默认 60 秒）。传输和复制备份仅在字节数增长时续期。
 
 ### 5.7 RunManager（services/runner.ts）
 
-- 全局并发上限 4；同一环境同时只允许一个执行（envLocks）。
+- 全局并发上限 4，环境锁在启动的首次异步操作前由运行 ID 占用，覆盖预检、落盘、排队和执行。
 - precheck()：接收本次上传模式和上传清单，展开上传目标并生成 Name/Path 上传变量，分别生成实际值预览与保留运行时变量的执行命令；跳过模式不检查本地来源，不建立 SSH。
-- start()：重新生成本次上传计划并保存上传模式、上传项、手工文件项和变量快照，创建 Run 记录、入队、立即返回 runId；上传模式下来源缺失时不创建运行记录，跳过模式生成空计划，并可根据手工文件名生成被引用的上传变量。
+- `start()` 重新生成上传计划，将上传模式、上传项、手工文件项和变量快照写入 Run。记录成功落盘后入队并返回 `runId`。预检、凭据读取或保存失败时按运行 ID 撤销启动并释放锁。跳过模式生成空计划，可根据手工文件名生成被引用的上传变量。
 - 状态机只允许预定义迁移；终态后忽略迟到事件。
 - 执行过程：连接 → 目录校验（可跳过）→ 预上传 → bash -lc 执行。
 - 命令前置 PID 标记：printf '\036CORRAL_PID:%s\036\n' "$$" >&2，主进程解析并剥离。
@@ -334,8 +336,8 @@ Preload 的订阅方法都返回取消订阅函数，渲染层在 useAppEvents �
 
 1. 渲染层点击操作；有上传规则时先选择本次本地文件/目录，再用实际上传项调用 run:precheck 获取展开后的命令、上传清单、缺失文件和警告；无上传规则时直接预检命令。
 2. 有上传规则时始终展示 ConfirmRunModal 进行来源选择、预检和最终确认；其他操作按 confirm 或警告决定是否确认，run:start 接收同一份上传清单。
-3. RunManager 创建 Run、加环境锁、入队并立即返回 runId。
-4. 主进程取凭据、建立 SSH、处理主机指纹。
+3. RunManager 占用环境锁、完成启动预检和凭据读取，保存 Run 后入队并返回 `runId`。
+4. 队列取得并发名额后建立 SSH 并处理主机指纹。
 5. 如开启目录校验，执行 test -d/-w 脚本，解析 DIR_OK/DIR_MISSING/WRITE_OK/READONLY。
 6. 上传模式为 upload 且存在上传项时，先完成全部 SFTP 上传与替换；skip 模式记录系统日志并跳过 SFTP，再进入命令执行。
 7. 通过 bash -lc 执行命令，按 60ms/64KB 聚合输出，分别写入日志文件并推送事件。
@@ -474,19 +476,19 @@ electron-builder.yml：
 ## 12. 测试架构
 
 - vitest.config.mts：Node 环境，electron 别名到 tests/mocks/electron.ts，只收集 src/**/*.test.ts。
-- 当前覆盖 13 个测试文件、89 个用例：
+- 当前覆盖 14 个测试文件、116 个用例：
   - shared/command：shell 转义、变量解析、路径拼接、校验脚本解析；
   - shared/pathCheck、envsStore：校验目标变化、快照保留与失效；
-  - store：默认值、原子写、损坏备份、旧数据迁移；
+  - store：默认值、原子写、写入失败后恢复、快照顺序、损坏备份、旧数据迁移；
   - vault：异步 safeStorage、损坏凭据；
-  - knownHosts：SHA256 指纹、信任/删除；
+  - knownHosts、server IPC：SHA256 指纹、并发快照、地址更新和共享指纹清理；
   - logStore：JSONL 写入、偏移分页、导出、删除；
   - retention：条数 ∩ 天数；
   - uploadPlan：文件/目录递归、缺失、重复目标；
-  - upload：FakeSftp 上传、备份、取消；
-  - runner：FakeSsh 成功/失败/拒绝连接、环境互斥、PID 标记；
+  - upload：FakeSftp 上传、备份后替换失败、取消、断连和各异步阶段超时；
+  - runner：FakeSsh 成功、失败、拒绝连接、环境互斥、落盘回滚、超时释放并发名额和 PID 标记；
   - textDecoder：UTF-8 跨块、GBK、批处理。
-- 真实 SSH/SFTP、主机指纹首次确认、大文件上传仍需在 Ubuntu/麒麟测试机上手工验证。
+- P1 在 Windows Electron 与 Ubuntu 临时目录上完成本机回环 SSH/SFTP 集成验收。详见 [P1 验证记录](p1-remediation-plan.md#验证结果)。
 
 ## 13. 扩展约定
 
