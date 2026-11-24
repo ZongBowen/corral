@@ -27,7 +27,6 @@ function useSystemDark(): boolean {
 
 function AppInner(): React.ReactElement {
   const { notification } = AntdApp.useApp()
-  const settings = useSettingsStore((state) => state.settings)
   const [booted, setBooted] = useState(false)
   const [bootError, setBootError] = useState<string | null>(null)
 

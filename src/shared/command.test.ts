@@ -31,15 +31,15 @@ describe('shellQuote', () => {
 
 describe('resolveVariables', () => {
   it('replaces known variables', () => {
-    expect(resolveVariables('cd \${workDir} && ls', { workDir: '/opt/app' })).toEqual({
+    expect(resolveVariables('cd ${workDir} && ls', { workDir: '/opt/app' })).toEqual({
       text: 'cd /opt/app && ls',
       missing: []
     })
   })
 
   it('reports missing variables and keeps placeholder', () => {
-    expect(resolveVariables('cd \${logDir}', {})).toEqual({
-      text: 'cd \${logDir}',
+    expect(resolveVariables('cd ${logDir}', {})).toEqual({
+      text: 'cd ${logDir}',
       missing: ['logDir']
     })
   })
@@ -68,7 +68,7 @@ describe('resolveCommandVariables', () => {
 
 describe('findUnquotedVars', () => {
   it('detects unquoted variables only', () => {
-    expect(findUnquotedVars('cd "\${workDir}" && cat \${configDir}/a')).toEqual(['configDir'])
+    expect(findUnquotedVars('cd "${workDir}" && cat ${configDir}/a')).toEqual(['configDir'])
   })
 })
 

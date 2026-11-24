@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useDrawerSession } from '../../hooks/useDrawerSession'
 import { App, Button, Drawer, Empty, Space, Tag, Typography, theme } from 'antd'
 import {
   ArrowDownOutlined,
@@ -26,7 +27,7 @@ export function EnvActionsDrawer({
   const { modal, message } = App.useApp()
   const { token } = theme.useToken()
   const [editing, setEditing] = useState<EnvAction | null>(null)
-  const [editorOpen, setEditorOpen] = useState(false)
+  const drawer = useDrawerSession()
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
 
@@ -149,7 +150,7 @@ export function EnvActionsDrawer({
                 disabled={saving}
                 onClick={() => {
                   setEditing(action)
-                  setEditorOpen(true)
+                  drawer.show()
                 }}
               />
               <Button
@@ -183,7 +184,7 @@ export function EnvActionsDrawer({
           disabled={saving}
           onClick={() => {
             setEditing(null)
-            setEditorOpen(true)
+            drawer.show()
           }}
         >
           新增操作
@@ -191,10 +192,11 @@ export function EnvActionsDrawer({
       </Space>
 
       <ActionEditor
-        open={editorOpen}
+        key={drawer.session}
+        open={drawer.open}
         env={env}
         action={editing}
-        onClose={() => setEditorOpen(false)}
+        onClose={drawer.close}
         onSave={saveAction}
       />
     </Drawer>

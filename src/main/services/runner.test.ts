@@ -34,7 +34,7 @@ class FakeSsh {
     return new FakeClient() as unknown as Client
   })
 
-  execStream = vi.fn(async (_client: Client, _command: string) => {
+  execStream = vi.fn<(client: Client, command: string) => Promise<ClientChannel>>(async () => {
     const stream = new FakeStream()
     setTimeout(() => {
       stream.emit('data', Buffer.from('hello\n'))
@@ -84,7 +84,7 @@ beforeEach(async () => {
       {
         id: 'a1',
         name: '更新',
-        command: 'cd "\${workDir}" && ./restart.sh',
+        command: 'cd "${workDir}" && ./restart.sh',
         timeoutSec: 300,
         confirm: true,
         uploadRules: []

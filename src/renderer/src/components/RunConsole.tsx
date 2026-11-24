@@ -42,5 +42,7 @@ export function RunConsole({ env }: { env: DevEnv }): React.ReactElement {
     }
   }
 
-  return <LogPanel stream={stream} onStop={stop} onExport={() => void exportLog()} />
+  return (
+    <LogPanel key={stream.runId} stream={stream} onStop={stop} onExport={() => void exportLog()} />
+  )
 }

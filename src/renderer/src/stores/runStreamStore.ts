@@ -13,6 +13,7 @@ export interface RunStream {
   status: RunStatus
   lines: StreamLine[]
   bytes: number
+  outputCount: number
   progress?: RunProgress
   run?: Run
   exitCode?: number
@@ -57,7 +58,7 @@ export const useRunStreamStore = create<RunStreamState>((set, get) => ({
       const existing = state.streams[runId]
       const stream: RunStream = existing
         ? { ...existing, envId, actionId }
-        : { runId, envId, actionId, status: 'queued', lines: [], bytes: 0 }
+        : { runId, envId, actionId, status: 'queued', lines: [], bytes: 0, outputCount: 0 }
       return {
         activeRunId: runId,
         activeByEnv: { ...state.activeByEnv, [envId]: runId },
@@ -75,7 +76,8 @@ export const useRunStreamStore = create<RunStreamState>((set, get) => ({
         actionId: null,
         status: 'running' as RunStatus,
         lines: [],
-        bytes: 0
+        bytes: 0,
+        outputCount: 0
       }
       const lines = [...current.lines, { stream, text }]
       let bytes = current.bytes + byteLength(text)
@@ -83,7 +85,12 @@ export const useRunStreamStore = create<RunStreamState>((set, get) => ({
         const removed = lines.shift()
         if (removed) bytes -= byteLength(removed.text)
       }
-      return { streams: { ...state.streams, [runId]: { ...current, lines, bytes } } }
+      return {
+        streams: {
+          ...state.streams,
+          [runId]: { ...current, lines, bytes, outputCount: current.outputCount + 1 }
+        }
+      }
     })
   },
   output: (event) => get().append(event.runId, event.stream, event.data),
@@ -95,7 +102,8 @@ export const useRunStreamStore = create<RunStreamState>((set, get) => ({
         actionId: null,
         status,
         lines: [],
-        bytes: 0
+        bytes: 0,
+        outputCount: 0
       }
       return { streams: { ...state.streams, [runId]: { ...current, ...extra, status } } }
     })
@@ -115,7 +123,8 @@ export const useRunStreamStore = create<RunStreamState>((set, get) => ({
         actionId: run.actionId,
         status: run.status,
         lines: [],
-        bytes: 0
+        bytes: 0,
+        outputCount: 0
       }
       return {
         streams: {

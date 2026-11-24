@@ -32,11 +32,11 @@ export const ENV_TEMPLATES: EnvTemplate[] = [
     build: () => [
       action(
         '更新',
-        'cd "\${workDir}" && docker compose pull && docker compose up -d --remove-orphans'
+        'cd "${workDir}" && docker compose pull && docker compose up -d --remove-orphans'
       ),
-      action('启动', 'cd "\${workDir}" && docker compose up -d'),
-      action('关闭', 'cd "\${workDir}" && docker compose down', { danger: true }),
-      action('状态', 'cd "\${workDir}" && docker compose ps')
+      action('启动', 'cd "${workDir}" && docker compose up -d'),
+      action('关闭', 'cd "${workDir}" && docker compose down', { danger: true }),
+      action('状态', 'cd "${workDir}" && docker compose ps')
     ]
   },
   {
@@ -44,7 +44,7 @@ export const ENV_TEMPLATES: EnvTemplate[] = [
     label: 'systemd 服务',
     description: '需要目标账号具备 systemctl 权限',
     build: () => [
-      action('更新', 'cd "\${workDir}" && ./deploy.sh'),
+      action('更新', 'cd "${workDir}" && ./deploy.sh'),
       action('启动', 'systemctl restart my-service'),
       action('关闭', 'systemctl stop my-service', { danger: true })
     ]
@@ -56,9 +56,9 @@ export const ENV_TEMPLATES: EnvTemplate[] = [
     build: () => [
       action(
         '启动',
-        'cd "\${workDir}" || exit 1; nohup ./start.sh > "\${logDir}/app.log" 2>&1 < /dev/null & echo $!'
+        'cd "${workDir}" || exit 1; nohup ./start.sh > "${logDir}/app.log" 2>&1 < /dev/null & echo $!'
       ),
-      action('关闭', 'cd "\${workDir}" && ./stop.sh', { danger: true })
+      action('关闭', 'cd "${workDir}" && ./stop.sh', { danger: true })
     ]
   },
   {
@@ -66,11 +66,11 @@ export const ENV_TEMPLATES: EnvTemplate[] = [
     label: '本地构建产物 + 执行前上传',
     description: '上传 jar 后执行重启脚本',
     build: () => [
-      action('更新', 'cd "\${workDir}" && ./restart.sh', {
+      action('更新', 'cd "${workDir}" && ./restart.sh', {
         uploadRules: [
           {
             id: newId(),
-            targetDir: '\${workDir}/lib',
+            targetDir: '${workDir}/lib',
             conflict: 'backup'
           }
         ]

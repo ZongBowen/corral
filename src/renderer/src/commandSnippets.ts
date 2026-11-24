@@ -36,7 +36,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     group: 'script',
     label: '前台运行脚本',
     description: '直接执行启动脚本，输出会实时回传到执行日志',
-    command: 'cd "\${workDir}" && ./start.sh',
+    command: 'cd "${workDir}" && ./start.sh',
     requires: ['workDir'],
     suggest: { name: '启动' }
   },
@@ -46,7 +46,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     label: 'nohup 后台常驻',
     description: '无终端环境下的正确后台写法：日志写文件并断开标准输入',
     command:
-      'cd "\${workDir}" || exit 1; nohup ./start.sh > "\${logDir}/app.log" 2>&1 < /dev/null & echo $!',
+      'cd "${workDir}" || exit 1; nohup ./start.sh > "${logDir}/app.log" 2>&1 < /dev/null & echo $!',
     requires: ['workDir', 'logDir'],
     suggest: { name: '启动（后台）' }
   },
@@ -56,7 +56,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     label: 'nohup + PID 文件',
     description: '在 nohup 基础上把 PID 写入 app.pid，便于按 PID 停止',
     command:
-      'cd "\${workDir}" || exit 1; nohup ./start.sh > "\${logDir}/app.log" 2>&1 < /dev/null & pid=$!; printf "%s\\n" "$pid" > "\${workDir}/app.pid"; cat "\${workDir}/app.pid"',
+      'cd "${workDir}" || exit 1; nohup ./start.sh > "${logDir}/app.log" 2>&1 < /dev/null & pid=$!; printf "%s\\n" "$pid" > "${workDir}/app.pid"; cat "${workDir}/app.pid"',
     requires: ['workDir', 'logDir'],
     suggest: { name: '启动（后台 + PID）' }
   },
@@ -66,7 +66,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     label: 'setsid 后台常驻',
     description: '用 setsid 脱离当前会话，比 nohup 更彻底',
     command:
-      'cd "\${workDir}" || exit 1; setsid ./start.sh > "\${logDir}/app.log" 2>&1 < /dev/null & echo $!',
+      'cd "${workDir}" || exit 1; setsid ./start.sh > "${logDir}/app.log" 2>&1 < /dev/null & echo $!',
     requires: ['workDir', 'logDir'],
     suggest: { name: '启动（setsid）' }
   },
@@ -76,7 +76,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     label: '按 PID 文件停止',
     description: '读取 app.pid 并发送 TERM，配合「启动（后台 + PID）」使用',
     command:
-      'cd "\${workDir}" && if [ -f app.pid ]; then pid=$(cat app.pid); kill "$pid" && rm -f app.pid && echo "已向 $pid 发送 TERM"; else echo "未找到 app.pid"; exit 1; fi',
+      'cd "${workDir}" && if [ -f app.pid ]; then pid=$(cat app.pid); kill "$pid" && rm -f app.pid && echo "已向 $pid 发送 TERM"; else echo "未找到 app.pid"; exit 1; fi',
     requires: ['workDir'],
     suggest: { name: '停止', danger: true }
   },
@@ -94,7 +94,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     group: 'docker',
     label: 'Compose 启动',
     description: '后台启动 Compose 服务',
-    command: 'cd "\${workDir}" && docker compose up -d',
+    command: 'cd "${workDir}" && docker compose up -d',
     requires: ['workDir'],
     suggest: { name: '启动' }
   },
@@ -103,7 +103,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     group: 'docker',
     label: 'Compose 状态',
     description: '查看 Compose 容器状态',
-    command: 'cd "\${workDir}" && docker compose ps',
+    command: 'cd "${workDir}" && docker compose ps',
     requires: ['workDir'],
     suggest: { name: '状态' }
   },
@@ -112,7 +112,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     group: 'docker',
     label: 'Compose 停止',
     description: '停止并移除 Compose 容器',
-    command: 'cd "\${workDir}" && docker compose down',
+    command: 'cd "${workDir}" && docker compose down',
     requires: ['workDir'],
     suggest: { name: '停止', danger: true }
   },
@@ -130,7 +130,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     group: 'diagnose',
     label: '跟踪日志',
     description: '持续跟踪日志尾部，到超时后自动结束',
-    command: 'tail -n 200 -F "\${logDir}/app.log"',
+    command: 'tail -n 200 -F "${logDir}/app.log"',
     requires: ['logDir'],
     suggest: { name: '查看日志', timeoutSec: 120 }
   },
@@ -139,7 +139,7 @@ export const COMMAND_SNIPPETS: CommandSnippet[] = [
     group: 'diagnose',
     label: '查看进程',
     description: '查看脚本进程，请把 start.sh 换成实际脚本名',
-    command: 'cd "\${workDir}" && ps -ef | grep -F -- "[s]tart.sh" || echo "未找到匹配进程"',
+    command: 'cd "${workDir}" && ps -ef | grep -F -- "[s]tart.sh" || echo "未找到匹配进程"',
     requires: ['workDir'],
     suggest: { name: '进程状态' }
   }

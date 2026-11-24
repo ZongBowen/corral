@@ -112,7 +112,7 @@ async function walkDirectory(
   let entries
   try {
     entries = await fs.readdir(root, { withFileTypes: true })
-  } catch (error) {
+  } catch {
     throw new AppError('upload', '无法读取本地目录：' + root)
   }
   for (const entry of entries) {

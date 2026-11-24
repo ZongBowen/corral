@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { App, Button, Drawer, Form, Input, Select, Space, Tag, Typography } from 'antd'
 import type { DevEnv, PathEntry } from '@shared/types'
 import { ENV_TEMPLATES, templateActions } from '../../templates'
-import { PathEditor } from '../../components/PathEditor'
+import { newId } from '@shared/id'
+import { PathEditor, type EditablePath } from '../../components/PathEditor'
 import { useServersStore } from '../../stores/serversStore'
 import { useEnvsStore } from '../../stores/envsStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -25,27 +26,21 @@ const DEFAULT_PATHS: PathEntry[] = [{ key: 'workDir', label: '工作目录', pat
 export function EnvDrawer({ open, env, onClose }: EnvDrawerProps): React.ReactElement {
   const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
-  const [paths, setPaths] = useState<PathEntry[]>(DEFAULT_PATHS)
+  const [paths, setPaths] = useState<EditablePath[]>(() =>
+    (env?.paths.length ? env.paths : DEFAULT_PATHS).map((path) => ({ ...path, id: newId() }))
+  )
   const [templateKey, setTemplateKey] = useState('docker')
   const [saving, setSaving] = useState(false)
   const servers = useServersStore((state) => state.servers)
   const upsert = useEnvsStore((state) => state.upsert)
   const selectEnv = useUiStore((state) => state.selectEnv)
+  const defaultServerId = servers[0]?.id
 
   useEffect(() => {
-    if (!open) return
-    form.setFieldsValue({
-      name: env?.name ?? '',
-      serverId: env?.serverId ?? servers[0]?.id,
-      description: env?.description ?? ''
-    })
-    setPaths(
-      env?.paths?.length
-        ? env.paths.map((entry) => ({ ...entry }))
-        : DEFAULT_PATHS.map((entry) => ({ ...entry }))
-    )
-    setTemplateKey('docker')
-  }, [open, env, form, servers])
+    if (open && !env && defaultServerId && !form.getFieldValue('serverId')) {
+      form.setFieldValue('serverId', defaultServerId)
+    }
+  }, [open, env, defaultServerId, form])
 
   const templateActionsPreview = useMemo(() => {
     if (env) return []
@@ -59,7 +54,13 @@ export function EnvDrawer({ open, env, onClose }: EnvDrawerProps): React.ReactEl
         void message.error('至少配置一个目录')
         return
       }
-      for (const entry of paths) {
+      const entries: PathEntry[] = paths.map(({ key, label, path, required }) => ({
+        key,
+        label,
+        path,
+        required
+      }))
+      for (const entry of entries) {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.key)) {
           void message.error('目录 key 格式不正确：' + entry.key)
           return
@@ -79,7 +80,7 @@ export function EnvDrawer({ open, env, onClose }: EnvDrawerProps): React.ReactEl
         serverId: values.serverId,
         name: values.name.trim(),
         description: values.description,
-        paths,
+        paths: entries,
         actions: env ? env.actions : templateActionsPreview
       }
       if (env) {
@@ -116,7 +117,15 @@ export function EnvDrawer({ open, env, onClose }: EnvDrawerProps): React.ReactEl
         </Space>
       }
     >
-      <Form form={form} layout="vertical">
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={{
+          name: env?.name ?? '',
+          serverId: env?.serverId ?? defaultServerId,
+          description: env?.description ?? ''
+        }}
+      >
         <Form.Item
           name="name"
           label="环境名称"

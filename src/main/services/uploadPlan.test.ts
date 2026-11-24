@@ -24,7 +24,7 @@ describe('buildUploadPlan', () => {
           id: 'u1',
           kind: 'file',
           localPath: file,
-          targetDir: '\${workDir}/lib',
+          targetDir: '${workDir}/lib',
           conflict: 'backup'
         }
       ],
@@ -80,7 +80,7 @@ describe('buildUploadPlan', () => {
     await writeFile(file, 'a')
     await expect(
       buildUploadPlan(
-        [{ id: 'u1', kind: 'file', localPath: file, targetDir: '\${unknown}', conflict: 'backup' }],
+        [{ id: 'u1', kind: 'file', localPath: file, targetDir: '${unknown}', conflict: 'backup' }],
         {}
       )
     ).rejects.toThrow()

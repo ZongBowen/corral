@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   App,
   Alert,
@@ -43,20 +43,16 @@ export function ServerDrawer({
   const upsert = useServersStore((state) => state.upsert)
   const setStatus = useServersStore((state) => state.setStatus)
 
-  useEffect(() => {
-    if (!open) return
-    setHostKeyFailure(null)
-    form.setFieldsValue({
-      name: editing?.name ?? seed?.name ?? '',
-      host: editing?.host ?? seed?.host ?? '',
-      port: editing?.port ?? seed?.port ?? 22,
-      username: editing?.username ?? seed?.username ?? '',
-      password: '',
-      description: editing?.description ?? seed?.description ?? '',
-      tags: editing?.tags ?? seed?.tags ?? [],
-      clearPassword: false
-    })
-  }, [open, editing, seed, form])
+  const initialValues: FormValues = {
+    name: editing?.name ?? seed?.name ?? '',
+    host: editing?.host ?? seed?.host ?? '',
+    port: editing?.port ?? seed?.port ?? 22,
+    username: editing?.username ?? seed?.username ?? '',
+    password: '',
+    description: editing?.description ?? seed?.description ?? '',
+    tags: editing?.tags ?? seed?.tags ?? [],
+    clearPassword: false
+  }
 
   const test = async (): Promise<void> => {
     try {
@@ -162,7 +158,7 @@ export function ServerDrawer({
         </Space>
       }
     >
-      <Form form={form} layout="vertical">
+      <Form form={form} initialValues={initialValues} layout="vertical">
         <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
           <Input placeholder="订单测试机-01" maxLength={64} />
         </Form.Item>
@@ -213,6 +209,7 @@ export function ServerDrawer({
                 size="small"
                 danger
                 onClick={() => {
+                  const { host, port } = form.getFieldsValue()
                   modal.confirm({
                     title: '信任新的主机指纹？',
                     content: '仅在确认服务器被重装或指纹变更可信时继续；否则可能存在中间人风险。',
@@ -220,11 +217,10 @@ export function ServerDrawer({
                     okButtonProps: { danger: true },
                     cancelText: '取消',
                     onOk: async () => {
-                      const values = form.getFieldsValue()
                       await unwrap(
                         window.api.server.trustHostKey({
-                          host: values.host,
-                          port: Number(values.port)
+                          host,
+                          port: Number(port)
                         })
                       )
                       setHostKeyFailure(null)

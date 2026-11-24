@@ -15,7 +15,7 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { DeleteOutlined, ExportOutlined, ReloadOutlined } from '@ant-design/icons'
-import dayjs, { type Dayjs } from 'dayjs'
+import type { Dayjs } from 'dayjs'
 import type { Run, RunFilter, RunStatus } from '@shared/types'
 import { StatusBadge } from '../../components/StatusBadge'
 import { AnsiText } from '../../components/AnsiText'

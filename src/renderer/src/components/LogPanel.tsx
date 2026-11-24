@@ -18,8 +18,9 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
   const { token } = theme.useToken()
   const { message } = App.useApp()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [stick, setStick] = useState(true)
-  const [newLines, setNewLines] = useState(0)
+  const [pausedAt, setPausedAt] = useState<number | null>(null)
+  const stick = pausedAt === null
+  const newLines = pausedAt === null ? 0 : stream.outputCount - pausedAt
 
   const entries = useMemo(() => {
     const result: { key: string; content: string; color: string; bold: boolean }[] = []
@@ -47,13 +48,7 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
 
   useEffect(() => {
     const element = scrollRef.current
-    if (!element) return
-    if (stick) {
-      element.scrollTop = element.scrollHeight
-      setNewLines(0)
-    } else {
-      setNewLines((count) => count + 1)
-    }
+    if (element && stick) element.scrollTop = element.scrollHeight
   }, [stream.lines, stick])
 
   const running = ['queued', 'connecting', 'validating', 'uploading', 'running'].includes(
@@ -178,7 +173,7 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
           onScroll={(event) => {
             const element = event.currentTarget
             const distance = element.scrollHeight - element.scrollTop - element.clientHeight
-            setStick(distance < 24)
+            setPausedAt((previous) => (distance < 24 ? null : (previous ?? stream.outputCount)))
           }}
           style={{
             flex: 1,
@@ -210,8 +205,7 @@ export function LogPanel({ stream, onStop, onExport }: LogPanelProps): React.Rea
               onClick={() => {
                 const element = scrollRef.current
                 if (element) element.scrollTop = element.scrollHeight
-                setStick(true)
-                setNewLines(0)
+                setPausedAt(null)
               }}
             >
               回到底部{newLines > 0 ? ' · ' + String(newLines) + ' 条新输出' : ''}

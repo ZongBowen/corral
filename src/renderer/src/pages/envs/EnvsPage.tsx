@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { App, Button, Empty, Input, Space, Tree, Typography, theme } from 'antd'
+import { useDrawerSession } from '../../hooks/useDrawerSession'
+import { Button, Empty, Input, Space, Tree, Typography, theme } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import type { DataNode } from 'antd/es/tree'
 import { useEnvsStore } from '../../stores/envsStore'
@@ -10,7 +11,6 @@ import { EnvDetail } from './EnvDetail'
 
 export function EnvsPage(): React.ReactElement {
   const { token } = theme.useToken()
-  const { message } = App.useApp()
   const envs = useEnvsStore((state) => state.envs)
   const loadEnvs = useEnvsStore((state) => state.load)
   const servers = useServersStore((state) => state.servers)
@@ -19,9 +19,8 @@ export function EnvsPage(): React.ReactElement {
   const selectEnv = useUiStore((state) => state.selectEnv)
 
   const [keyword, setKeyword] = useState('')
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const drawer = useDrawerSession()
   const [editing, setEditing] = useState<import('@shared/types').DevEnv | null>(null)
-  const [expandedKeys, setExpandedKeys] = useState<string[]>([])
 
   useEffect(() => {
     void loadEnvs()
@@ -65,9 +64,9 @@ export function EnvsPage(): React.ReactElement {
     return Array.from(map.values()).filter((node) => (node.children?.length ?? 0) > 0)
   }, [servers, filteredEnvs])
 
-  useEffect(() => {
-    setExpandedKeys(treeData.map((node) => String(node.key)))
-  }, [treeData])
+  const [treeExpansion, setTreeExpansion] = useState<{ tree: DataNode[]; keys: string[] }>()
+  const expandedKeys =
+    treeExpansion?.tree === treeData ? treeExpansion.keys : treeData.map((node) => String(node.key))
 
   const selectedEnv = envs.find((env) => env.id === selectedEnvId) ?? null
 
@@ -95,7 +94,7 @@ export function EnvsPage(): React.ReactElement {
             icon={<PlusOutlined />}
             onClick={() => {
               setEditing(null)
-              setDrawerOpen(true)
+              drawer.show()
             }}
           >
             新增
@@ -117,7 +116,7 @@ export function EnvsPage(): React.ReactElement {
               treeData={treeData}
               expandedKeys={expandedKeys}
               selectedKeys={selectedEnvId ? ['env:' + selectedEnvId] : []}
-              onExpand={(keys) => setExpandedKeys(keys.map(String))}
+              onExpand={(keys) => setTreeExpansion({ tree: treeData, keys: keys.map(String) })}
               onSelect={(keys) => {
                 const key = String(keys[0] ?? '')
                 if (key.startsWith('env:')) selectEnv(key.slice(4))
@@ -130,7 +129,7 @@ export function EnvsPage(): React.ReactElement {
             style={{ marginTop: 8 }}
             onClick={() => {
               setEditing(selectedEnv)
-              setDrawerOpen(true)
+              drawer.show()
             }}
           >
             编辑当前环境
@@ -141,23 +140,24 @@ export function EnvsPage(): React.ReactElement {
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         {selectedEnv ? (
           <EnvDetail
+            key={selectedEnv.id}
             env={selectedEnv}
             onEdit={() => {
               setEditing(selectedEnv)
-              setDrawerOpen(true)
+              drawer.show()
             }}
           />
         ) : (
           <CardishEmpty
             onCreate={() => {
               setEditing(null)
-              setDrawerOpen(true)
+              drawer.show()
             }}
           />
         )}
       </div>
 
-      <EnvDrawer open={drawerOpen} env={editing} onClose={() => setDrawerOpen(false)} />
+      <EnvDrawer key={drawer.session} open={drawer.open} env={editing} onClose={drawer.close} />
     </div>
   )
 }

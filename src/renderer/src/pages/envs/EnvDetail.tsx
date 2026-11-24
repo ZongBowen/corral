@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { App, Badge, Button, Card, Empty, Space, Tag, Typography, theme } from 'antd'
+import { useCallback, useEffect, useState } from 'react'
+import { App, Badge, Button, Card, Empty, Space, Tag, Typography } from 'antd'
 import {
   DeleteOutlined,
   EditOutlined,
@@ -17,7 +17,6 @@ import type {
   RunUploadMode,
   UploadItem
 } from '@shared/types'
-import { StatusBadge } from '../../components/StatusBadge'
 import { RunConsole } from '../../components/RunConsole'
 import { ConfirmRunModal } from '../../components/ConfirmRunModal'
 import { EnvActionsDrawer } from './EnvActionsDrawer'
@@ -44,7 +43,6 @@ export function EnvDetail({
   env: DevEnv
   onEdit: () => void
 }): React.ReactElement {
-  const { token } = theme.useToken()
   const { message, modal, notification } = App.useApp()
   const servers = useServersStore((state) => state.servers)
   const checks = useEnvsStore((state) => state.pathChecks[env.id])
@@ -81,29 +79,6 @@ export function EnvDetail({
       item && ['queued', 'connecting', 'validating', 'uploading', 'running'].includes(item.status)
     )
   })
-
-  useEffect(() => {
-    if (!stream || stream.status !== 'failed' || !stream.run) return
-    if (!stream.errorMessage?.startsWith('目录校验失败')) return
-    const failedRun = stream.run
-    notification.warning({
-      key: 'path-check-' + stream.runId,
-      message: '目录校验失败',
-      description: stream.errorMessage,
-      duration: 0,
-      btn: (
-        <Button
-          size="small"
-          onClick={() => {
-            notification.destroy('path-check-' + stream.runId)
-            void retryRun(failedRun)
-          }}
-        >
-          仍要执行
-        </Button>
-      )
-    })
-  }, [stream?.status, stream?.runId, stream?.run])
 
   const detect = async (): Promise<void> => {
     setDetecting(true)
@@ -142,46 +117,77 @@ export function EnvDetail({
     }
   }
 
-  const retryRun = async (failedRun: Run): Promise<void> => {
-    const action = env.actions.find((item) => item.id === failedRun.actionId)
-    if (!action) return
-    await beginRun(
-      action,
-      failedRun.uploads ?? [],
-      true,
-      failedRun.uploadMode ?? 'upload',
-      failedRun.manualUploadFiles ?? []
-    )
-  }
+  const beginRun = useCallback(
+    async (
+      action: EnvAction,
+      uploads: UploadItem[],
+      force = false,
+      uploadMode: RunUploadMode = 'upload',
+      manualUploadFiles: ManualUploadFile[] = []
+    ): Promise<void> => {
+      try {
+        setStarting(true)
+        const result = await unwrap(
+          window.api.run.start({
+            envId: env.id,
+            actionId: action.id,
+            uploads,
+            uploadMode,
+            manualUploadFiles,
+            force
+          })
+        )
+        useRunStreamStore.getState().begin(result.runId, env.id, action.id)
+        setPending(null)
+        void message.success('已开始执行「' + action.name + '」')
+      } catch (error) {
+        void message.error(error instanceof Error ? error.message : String(error))
+      } finally {
+        setStarting(false)
+      }
+    },
+    [env.id, message, setPending]
+  )
 
-  const beginRun = async (
-    action: EnvAction,
-    uploads: UploadItem[],
-    force = false,
-    uploadMode: RunUploadMode = 'upload',
-    manualUploadFiles: ManualUploadFile[] = []
-  ): Promise<void> => {
-    try {
-      setStarting(true)
-      const result = await unwrap(
-        window.api.run.start({
-          envId: env.id,
-          actionId: action.id,
-          uploads,
-          uploadMode,
-          manualUploadFiles,
-          force
-        })
+  const retryRun = useCallback(
+    async (failedRun: Run): Promise<void> => {
+      const action = env.actions.find((item) => item.id === failedRun.actionId)
+      if (!action) return
+      await beginRun(
+        action,
+        failedRun.uploads ?? [],
+        true,
+        failedRun.uploadMode ?? 'upload',
+        failedRun.manualUploadFiles ?? []
       )
-      useRunStreamStore.getState().begin(result.runId, env.id, action.id)
-      setPending(null)
-      void message.success('已开始执行「' + action.name + '」')
-    } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error))
-    } finally {
-      setStarting(false)
-    }
-  }
+    },
+    [env.actions, beginRun]
+  )
+
+  const failedRun = stream?.status === 'failed' ? stream.run : undefined
+  const streamError = stream?.errorMessage
+  useEffect(() => {
+    if (!failedRun || !streamError?.startsWith('目录校验失败')) return
+    const key = 'path-check-' + failedRun.id
+    notification.warning({
+      key,
+      message: '目录校验失败',
+      description: streamError,
+      duration: 0,
+      btn: (
+        <Button
+          size="small"
+          onClick={() => {
+            notification.destroy(key)
+            void retryRun(failedRun)
+          }}
+        >
+          仍要执行
+        </Button>
+      )
+    })
+    return () => notification.destroy(key)
+  }, [failedRun, streamError, notification, retryRun])
 
   const requestRun = async (action: EnvAction): Promise<void> => {
     if (action.uploadRules.length > 0) {

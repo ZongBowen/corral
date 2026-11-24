@@ -263,9 +263,9 @@ export function ConfirmRunModal({
                 {formatBytes(precheck.totalBytes)}）
               </Typography.Text>
               <div style={{ marginTop: 8 }}>
-                {precheck.items.map((item, index) => (
+                {precheck.items.map((item) => (
                   <div
-                    key={index}
+                    key={item.targetPath}
                     style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}
                   >
                     <Tag color={item.kind === 'file' ? 'blue' : 'gold'}>

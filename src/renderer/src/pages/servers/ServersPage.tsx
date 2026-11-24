@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useDrawerSession } from '../../hooks/useDrawerSession'
 import { App, Button, Dropdown, Empty, Input, Select, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { EllipsisOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
@@ -25,7 +26,7 @@ export function ServersPage(): React.ReactElement {
   const [keyword, setKeyword] = useState('')
   const [tagFilter, setTagFilter] = useState<string | undefined>(undefined)
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const drawer = useDrawerSession()
   const [editing, setEditing] = useState<ServerSummary | null>(null)
   const [seed, setSeed] = useState<Partial<ServerInput> | null>(null)
   const tableContainerRef = useRef<HTMLDivElement>(null)
@@ -93,13 +94,13 @@ export function ServersPage(): React.ReactElement {
   const openCreate = (): void => {
     setEditing(null)
     setSeed(null)
-    setDrawerOpen(true)
+    drawer.show()
   }
 
   const openEdit = (server: ServerSummary): void => {
     setEditing(server)
     setSeed(null)
-    setDrawerOpen(true)
+    drawer.show()
   }
 
   const openCopy = (server: ServerSummary): void => {
@@ -112,7 +113,7 @@ export function ServersPage(): React.ReactElement {
       description: server.description,
       tags: server.tags
     })
-    setDrawerOpen(true)
+    drawer.show()
   }
 
   const runTest = async (server: ServerSummary): Promise<void> => {
@@ -308,10 +309,11 @@ export function ServersPage(): React.ReactElement {
       </div>
 
       <ServerDrawer
-        open={drawerOpen}
+        key={drawer.session}
+        open={drawer.open}
         editing={editing}
         seed={seed}
-        onClose={() => setDrawerOpen(false)}
+        onClose={drawer.close}
       />
     </div>
   )

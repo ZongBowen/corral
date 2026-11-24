@@ -1,10 +1,15 @@
 import { Button, Input, Space, Switch, Tooltip, Typography } from 'antd'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { newId } from '@shared/id'
 import type { PathEntry } from '@shared/types'
 
+export interface EditablePath extends PathEntry {
+  id: string
+}
+
 interface PathEditorProps {
-  value: PathEntry[]
-  onChange: (value: PathEntry[]) => void
+  value: EditablePath[]
+  onChange: (value: EditablePath[]) => void
 }
 
 export function PathEditor({ value, onChange }: PathEditorProps): React.ReactElement {
@@ -17,7 +22,7 @@ export function PathEditor({ value, onChange }: PathEditorProps): React.ReactEle
       {value.map((entry, index) => {
         const isWorkDir = entry.key === 'workDir'
         return (
-          <Space key={index} align="start" style={{ width: '100%' }} wrap>
+          <Space key={entry.id} align="start" style={{ width: '100%' }} wrap>
             <Input
               value={entry.key}
               placeholder="key，如 workDir"
@@ -59,7 +64,9 @@ export function PathEditor({ value, onChange }: PathEditorProps): React.ReactEle
         <Button
           type="dashed"
           icon={<PlusOutlined />}
-          onClick={() => onChange([...value, { key: '', label: '', path: '', required: false }])}
+          onClick={() =>
+            onChange([...value, { id: newId(), key: '', label: '', path: '', required: false }])
+          }
         >
           添加目录
         </Button>

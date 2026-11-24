@@ -44,7 +44,7 @@ const CONN_BADGE: Record<ConnState, 'default' | 'processing' | 'success' | 'erro
   offline: 'error'
 }
 
-export function isRunStatus(status: Status): status is RunStatus {
+function isRunStatus(status: Status): status is RunStatus {
   return status in RUN_TEXT
 }
 

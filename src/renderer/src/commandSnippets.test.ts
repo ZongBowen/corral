@@ -23,7 +23,7 @@ function makeSnippet(overrides: Partial<CommandSnippet> = {}): CommandSnippet {
     group: 'script',
     label: '测试片段',
     description: '测试用',
-    command: 'cd "\${workDir}" && ./start.sh',
+    command: 'cd "${workDir}" && ./start.sh',
     requires: ['workDir'],
     ...overrides
   }

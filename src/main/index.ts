@@ -75,13 +75,12 @@ async function bootstrap(): Promise<void> {
   const logs = new LogStore(join(dataDir, 'logs'))
   await logs.init()
 
-  let hostKeys: HostKeyBroker
   const emit = (channel: string, payload: unknown): void => {
     const win = mainWindow
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
   }
 
-  hostKeys = new HostKeyBroker(() => mainWindow)
+  const hostKeys = new HostKeyBroker(() => mainWindow)
   const ssh = new SshService({
     knownHosts,
     hostKeys,

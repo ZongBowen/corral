@@ -56,7 +56,7 @@ export function ActionEditor({
 }: ActionEditorProps): React.ReactElement {
   const { message, modal } = App.useApp()
   const [form] = Form.useForm<ActionForm>()
-  const [uploadRules, setUploadRules] = useState<UploadRule[]>([])
+  const [uploadRules, setUploadRules] = useState<UploadRule[]>(() => action?.uploadRules ?? [])
   const [saving, setSaving] = useState(false)
   const [variableKey, setVariableKey] = useState<string | undefined>(undefined)
   const [snippetKey, setSnippetKey] = useState<string | undefined>(undefined)
@@ -99,20 +99,18 @@ export function ActionEditor({
 
   useEffect(() => {
     openRef.current = open
+    return () => {
+      openRef.current = false
+    }
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
-    form.setFieldsValue({
-      name: action?.name ?? '',
-      command: action?.command ?? '',
-      timeoutSec: action?.timeoutSec ?? settings.defaultTimeoutSec,
-      confirm: action?.confirm ?? true,
-      danger: action?.danger ?? false
-    })
-    setUploadRules(action?.uploadRules ?? [])
-    setSnippetKey(undefined)
-  }, [open, action, form, settings.defaultTimeoutSec])
+  const initialValues: ActionForm = {
+    name: action?.name ?? '',
+    command: action?.command ?? '',
+    timeoutSec: action?.timeoutSec ?? settings.defaultTimeoutSec,
+    confirm: action?.confirm ?? true,
+    danger: action?.danger ?? false
+  }
 
   const missingVars = extractVariables(command).filter(
     (key) => !Object.prototype.hasOwnProperty.call(vars, key) && !uploadVariableNames.includes(key)
@@ -124,7 +122,7 @@ export function ActionEditor({
 
   const insertVariable = (key: string): void => {
     const current = form.getFieldValue('command') ?? ''
-    form.setFieldValue('command', current + ' \${' + key + '}')
+    form.setFieldValue('command', current + ' ${' + key + '}')
   }
 
   const applySnippet = (snippet: CommandSnippet): void => {
@@ -248,6 +246,7 @@ export function ActionEditor({
     >
       <Form
         form={form}
+        initialValues={initialValues}
         layout="horizontal"
         labelCol={{ span: 6 }}
         wrapperCol={{ span: 16 }}
@@ -352,7 +351,7 @@ export function ActionEditor({
           <Input.TextArea
             className="corral-code"
             rows={9}
-            placeholder={'cd "\${workDir}" && ./restart.sh'}
+            placeholder={'cd "${workDir}" && ./restart.sh'}
           />
         </Form.Item>
 
@@ -391,7 +390,7 @@ export function ActionEditor({
           value={uploadRules}
           onChange={setUploadRules}
           defaultConflict={settings.defaultConflict}
-          defaultTarget={'\${workDir}'}
+          defaultTarget={'${workDir}'}
         />
       </Form>
     </Drawer>

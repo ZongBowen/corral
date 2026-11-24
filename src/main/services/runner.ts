@@ -803,6 +803,7 @@ export class PidMarkerParser {
   push(text: string): string {
     if (this.done) return text
     this.buffer += text
+    // eslint-disable-next-line no-control-regex -- The PID marker uses the record separator as a delimiter.
     const match = /\x1eCORRAL_PID:(\d+)\x1e\n?/.exec(this.buffer)
     if (match) {
       this.done = true
