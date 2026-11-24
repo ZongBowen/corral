@@ -1,0 +1,9 @@
+out
+dist
+release
+package-lock.json
+LICENSE.md
+tsconfig.json
+tsconfig.*.json
+.agents/skills/
+.codebuddy/skills/

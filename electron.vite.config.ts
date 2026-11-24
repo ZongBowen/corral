@@ -1,9 +1,9 @@
 import { resolve } from 'node:path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 
-const root = (p: string) => resolve(__dirname, p)
+const root = (path: string): string => resolve(__dirname, path)
 const alias = {
   '@shared': root('src/shared'),
   '@main': root('src/main'),
@@ -45,20 +45,11 @@ function cspPlugin(): Plugin {
 }
 
 export default defineConfig({
-  main: {
-    plugins: [externalizeDepsPlugin()],
-    resolve: { alias },
-    build: { sourcemap: true }
-  },
-  preload: {
-    plugins: [externalizeDepsPlugin()],
-    resolve: { alias },
-    build: { sourcemap: true }
-  },
+  main: { resolve: { alias } },
+  preload: { resolve: { alias } },
   renderer: {
     root: root('src/renderer'),
-    plugins: [react(), cspPlugin()],
     resolve: { alias },
-    build: { sourcemap: true }
+    plugins: [react(), cspPlugin()]
   }
 })

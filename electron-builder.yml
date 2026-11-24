@@ -1,7 +1,5 @@
 appId: com.corral.desktop
 productName: Corral
-electronDownload:
-  mirror: https://npmmirror.com/mirrors/electron/
 directories:
   output: release
   buildResources: build
@@ -10,12 +8,13 @@ files:
   - '!out/**/*.map'
   - package.json
 asar: true
-npmRebuild: false
+asarUnpack:
+  - resources/**
 win:
+  executableName: Corral
   target:
     - target: nsis
-      arch:
-        - x64
+      arch: [x64]
   artifactName: ${productName}-${version}-setup.${ext}
 nsis:
   oneClick: false
@@ -25,4 +24,21 @@ nsis:
   createDesktopShortcut: true
   shortcutName: Corral
   deleteAppDataOnUninstall: false
+mac:
+  extendInfo:
+    NSDocumentsFolderUsageDescription: Corral reads files selected for SFTP upload and saves exported configuration and logs.
+    NSDownloadsFolderUsageDescription: Corral reads files selected for SFTP upload and saves exported configuration and logs.
+  notarize: false
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - snap
+    - deb
+  maintainer: ZongBowen <zongbowen1992@hotmail.com>
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false
 publish: null

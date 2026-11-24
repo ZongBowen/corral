@@ -6,17 +6,24 @@
 
 ## 开发
 
-    pnpm install
-    pnpm dev
+项目使用 npm 管理依赖。`.npmrc` 将 npm 源设为 `https://registry.npmmirror.com/`，与锁文件一致。
+
+    npm ci
+    npm run dev
 
 ## 校验
 
-    pnpm typecheck
-    pnpm test
+    npm run typecheck
+    npm run lint
+    npm run format:check
+    npm test
 
 ## 构建
 
-    pnpm build
-    pnpm exec electron-builder --win --x64 --dir
+    npm run build
+
+以下命令会先构建应用，再生成 Windows x64 免安装应用目录。
+
+    npm run build:unpack -- --win --x64
 
 数据目录：%APPDATA%/Corral（服务器、环境、执行历史、加密凭据、日志）。

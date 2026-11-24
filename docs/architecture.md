@@ -21,16 +21,16 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
 
 | 层 | 选型 | 当前版本 |
 | --- | --- | --- |
-| 桌面运行时 | Electron | 45.1.0 |
-| 构建 | electron-vite + Vite | 6.0.0 / 8.3.5 |
-| UI | React + Ant Design | 19.3.1 / 6.6.8 |
-| 状态 | Zustand | 5.0.16 |
+| 桌面运行时 | Electron | 45.4.1 |
+| 构建 | electron-vite + Vite | 6.0.0 / 8.3.8 |
+| UI | React + Ant Design | 19.3.1 / 6.7.1 |
+| 状态 | Zustand | 5.1.0 |
 | 校验 | Zod | 4.6.7 |
 | SSH/SFTP | ssh2 | 1.17.0 |
 | 日志渲染 | anser | 2.3.5 |
 | 编码 | iconv-lite | 0.7.3 |
-| 语言/类型 | TypeScript | 7.0.2 |
-| 测试 | Vitest | 5.0.5 |
+| 语言/类型 | TypeScript | 5.9.3 |
+| 测试 | Vitest | 5.1.1 |
 | 打包 | electron-builder（NSIS x64） | 26.18.0 |
 
 主进程和预加载脚本输出 CommonJS（package.json 未设置 type: module），因此 sandbox: true 的预加载脚本可以正常 require('electron')。ssh2 与 iconv-lite 放在 dependencies 中并由 electron-builder 打入 asar；React、antd、zustand、zod、nanoid、anser 等由 Vite 打进各自 bundle。
@@ -42,9 +42,11 @@ Corral 是一个 Windows 桌面端研发服务器管理工具，使用 Electron 
     │  ├─ design.md                 # 产品设计文档
     │  └─ architecture.md           # 本文
     ├─ electron.vite.config.ts      # 三端构建、别名、CSP 注入
-    ├─ electron-builder.yml         # NSIS x64 打包配置
+    ├─ electron-builder.yml         # 各平台打包配置
+    ├─ electron-builder.env         # Electron 和打包工具下载镜像
     ├─ package.json
-    ├─ pnpm-workspace.yaml          # hoisted linker、允许执行的构建脚本
+    ├─ package-lock.json            # npm 依赖锁文件
+    ├─ .npmrc                       # npm 安装配置
     ├─ tsconfig.json                # IDE/通用配置
     ├─ tsconfig.node.json           # main/preload/shared 类型检查
     ├─ tsconfig.web.json            # renderer/shared 类型检查
@@ -434,16 +436,17 @@ hooks/useAppEvents.ts 在 App 挂载时一次性订阅：
 
 - 三个 target：main、preload、renderer。
 - 别名：@shared、@main、@renderer。
-- externalizeDepsPlugin() 外部化 dependencies（ssh2、iconv-lite）；其余依赖由 Vite 打包。
+- electron-vite 默认将主进程和预加载引用的 dependencies 外部化。electron-builder 收集 ssh2、iconv-lite 等运行时依赖。
 - CSP 插件在 renderer 构建时替换 index.html 的 CSP 占位符：
   - 开发：允许 unsafe-inline 与 localhost WebSocket，兼容 HMR；
   - 生产：收紧为 script-src 'self'。
 - main/preload 输出 CJS，满足 sandbox preload 限制。
 
-### 11.2 pnpm
+### 11.2 npm
 
-- pnpm-workspace.yaml 设置 nodeLinker: hoisted，便于 electron-builder 收集依赖。
-- onlyBuiltDependencies 允许 electron、electron-builder、esbuild 执行安装脚本；cpu-features、electron-winstaller、ssh2 的构建脚本被忽略（ssh2 可选原生依赖不影响密码认证/exec/SFTP）。
+- 首次安装使用 `npm ci`，按 `package-lock.json` 安装依赖。`.npmrc` 设置与锁文件一致的 npm 镜像。
+- 项目的 `postinstall` 从 `electron-builder.env` 读取 Electron 下载镜像并安装二进制文件。`allowScripts` 允许锁定版本的 electron-winstaller、ssh2 和 cpu-features 执行安装脚本。
+- SSH2 会在可选原生加速模块不可用时使用 JavaScript 实现。
 
 ### 11.3 打包
 
@@ -452,17 +455,21 @@ electron-builder.yml：
 - Windows NSIS x64，oneClick: false，允许修改安装目录；
 - files 只包含 out/**/*、!out/**/*.map、package.json；
 - asar: true、npmRebuild: false；
-- electronDownload.mirror 指向 npmmirror；
+- electron-builder CLI 读取根目录的 `electron-builder.env`。本地签名变量通过 shell 或 CI 注入，使用本地文件时在启动 npm 或 electron-builder 前显式加载；
 - 目前未配置自定义图标与代码签名，使用 Electron 默认图标。
 
 ### 11.4 常用命令
 
-    pnpm dev                 # electron-vite 开发模式
-    pnpm typecheck           # node + web 两套 TS 类型检查
-    pnpm test                # Vitest
-    pnpm build               # typecheck + electron-vite build
-    pnpm dist:dir            # 构建并生成 release/win-unpacked
-    pnpm dist                # 构建 NSIS 安装包
+    npm run dev                            # electron-vite 开发模式
+    npm run typecheck                      # node + web 两套 TS 类型检查
+    npm run lint                           # ESLint
+    npm run format:check                   # Prettier
+    npm test                               # Vitest
+    npm run build                          # typecheck + electron-vite build
+    npm run build:unpack -- --win --x64     # 构建并生成 release/win-unpacked
+    npm run build:win                      # 构建 NSIS x64 安装包
+    npm run build:mac                      # 构建 macOS 安装包
+    npm run build:linux                    # 构建 Linux 安装包
 
 ## 12. 测试架构
 
